@@ -1,67 +1,48 @@
 # Price Watch
 
-A personal product price tracker built with React, TypeScript, Python, Playwright, and Google Cloud.
+A personal product price tracking system built with **React, TypeScript, Python, Playwright, and Google Cloud**.
 
-It checks product prices weekly, compares them with target prices, stores historical data, and displays price trends on a website.
+It automatically checks product prices, compares them with target prices, stores historical data, detects suspicious price changes, and displays price trends on a web dashboard.
 
-## Architecture
+The scraper runs locally because some monitored websites may block traffic from cloud data centers.
 
-```text
-Windows Task Scheduler
-        ↓
-Python + Playwright
-        ↓
-Product Websites
-        ↓
-Google Cloud Storage
-   ├── latest.json
-   └── history/
-        ↓
-React + TypeScript
-        ↓
-Google Cloud Run
+## Run the Frontend
+
+Install dependencies:
+```bash
+npm install
 ```
 
-The price checker runs locally because some monitored websites use Cloudflare and block requests from cloud data centers.
+Start the development server:
+```bash
+npm run dev
+```
 
-## Tech Stack
-
-**Frontend**
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- Recharts
-
-**Price Checker**
-- Python
-- Playwright
-- Firefox
-
-**Cloud**
-- Google Cloud Run
-- Google Cloud Storage
-- Artifact Registry
-
-**Automation**
-- Windows Task Scheduler
-
-## Project Structure
-
+Local website: 
 ```text
-WishList/
-├── src/                  # React frontend
-├── python/
-│   ├── webscraping.py
-│   ├── products.json
-│   └── requirements.txt
-├── Dockerfile
-├── nginx.conf
-└── package.json
+http://localhost:5173
+```
+
+## Run the Price Checker
+
+From the Python directory:
+```bash
+cd python
+```
+Install Python dependencies:
+```bash
+python -m pip install -r requirements.txt
+```
+Install Firefox for Playwright:
+```bash
+playwright install firefox
+```
+Run the price checker:
+```bash
+python webscraping.py
 ```
 
 ## Products
-
 Products are configured in:
 
 ```text
@@ -80,69 +61,96 @@ Example:
 ]
 ```
 
-## Run the Frontend
+## Tech Stack
 
-```bash
-npm install
-npm run dev
-```
+**Frontend**
 
-Local website:
+* React
+* TypeScript
+* Vite
+* Tailwind CSS
+* Recharts
 
+**Scraper**
+
+* Python
+* Playwright
+* Firefox
+* Pydantic
+
+**Testing**
+
+* pytest
+
+**Cloud**
+
+* Google Cloud Run
+* Google Cloud Storage
+* Artifact Registry
+
+**Automation**
+
+* Windows Task Scheduler
+
+## Architecture
 ```text
-http://localhost:5173
+Windows Task Scheduler
+        ↓
+┌──────────────────────────────┐
+│     Python Price Checker     │
+│                              │
+│  Playwright + Firefox        │
+│          ↕                   │
+│   Product Websites           │
+│          ↓                   │
+│   Site Adapter               │
+│          ↓                   │
+│   Extraction Strategy        │
+│          ↓                   │
+│   Price Parser               │
+│          ↓                   │
+│   Previous Price Lookup      │
+│          ↓                   │
+│   Price Validation           │
+└─────────────┬────────────────┘
+              │
+       ┌──────┴───────┐
+       ▼              ▼
+     Valid      Failed / Suspicious
+       │              │
+       ▼              ▼
+Google Cloud      Local Debug
+Storage           Artifacts
+├─ latest.json    ├─ screenshot
+└─ history/       ├─ HTML
+       │          ├─ error.json
+       │          └─ trace.zip
+       ▼
+React + TypeScript
+       ↓
+Google Cloud Run
 ```
 
-## Run the Price Checker
+## Current Features
 
-```bash
-cd python
-python -m pip install -r requirements.txt
-playwright install firefox
-python webscraping.py
-```
+* Automatic weekly price checks
+* Target price tracking
+* Historical price charts
+* Site adapter architecture
+* JSON-LD price extraction
+* Price parsing and validation
+* Previous-price comparison
+* Suspicious price detection
+* Structured error handling
+* Playwright screenshots, HTML snapshots, and traces for failed checks
+* Automated tests with pytest
+* Google Cloud Storage integration
+* React dashboard deployed on Cloud Run
 
-The script:
+## Future Work
 
-1. Reads `products.json`
-2. Scrapes current prices
-3. Compares them with target prices
-4. Updates price history
-5. Uploads JSON data to Google Cloud Storage
-
-## Automatic Price Checks
-
-Windows Task Scheduler runs the scraper:
-
-```text
-Every Monday at 08:00
-```
-
-The task is configured to run as soon as possible if the scheduled time was missed.
-
-Therefore, the computer does not need to be running exactly at 08:00.
-
-## Data
-
-Price data is stored in:
-
-```text
-gs://wishlist-example-price-data/
-├── latest.json
-└── history/
-    ├── index.json
-    ├── 2026-08-17.json
-    └── 2026-08-24.json
-```
-
-If a price check completely fails, existing cloud data is not overwritten.
-
-## Status
-
-✅ React price dashboard  
-✅ Target price tracking  
-✅ Historical price charts  
-✅ Python + Playwright scraper  
-✅ Google Cloud Storage  
-✅ Google Cloud Run  
-✅ Weekly automatic price checks
+* Run metadata and scraper health monitoring
+* Safer Google Cloud Storage writes
+* Price-drop and failure notifications
+* Additional site-specific scraper adapters when needed
+* Improved dashboard statistics, filters, and health indicators
