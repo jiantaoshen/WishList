@@ -36,9 +36,11 @@ LATEST_FILE = DATA_DIR / "latest.json"
 HISTORY_INDEX_FILE = HISTORY_DIR / "index.json"
 DEBUG_DIR = PROJECT_DIR / "debug"
 RUNS_DIR = DATA_DIR / "runs"
+RUN_LATEST_FILE = RUNS_DIR / "latest.json"
 ENV_FILE = PROJECT_DIR / ".env"
 STATE_DIR = PYTHON_DIR / ".state"
 NOTIFICATION_STATE_FILE = STATE_DIR / "notifications.json"
+
 
 load_dotenv(ENV_FILE)
 
@@ -430,9 +432,15 @@ async def main():
         # Save run metadata to runs directory
         run_file = RUNS_DIR / f"{run_id}.json"
         save_json(run_file, run_metadata.model_dump(mode="json"))
+
+        # Latest scraper health snapshot
+        save_json(RUN_LATEST_FILE,run_metadata.model_dump(mode="json"))
     
         # Upload run metadata to Google Cloud Storage
         upload_new_json_to_gcs(f"runs/{run_id}.json", run_metadata.model_dump(mode="json"))
+
+        # Update latest run metadata in Google Cloud Storage
+        upload_json_to_gcs_safely("runs/latest.json", run_metadata.model_dump(mode="json"))
 
         # ============================================================
         # Collect run notification

@@ -7,7 +7,11 @@ dist/
 dist-ssr/
 *.local
 
+
+# =========================
 # Logs
+# =========================
+
 logs/
 *.log
 npm-debug.log*
@@ -28,10 +32,12 @@ __pycache__/
 .venv/
 venv/
 env/
-debug/
-python/.state/
 
 .pytest_cache/
+
+# Runtime state / debug artifacts
+debug/
+python/.state/
 
 
 # =========================
@@ -44,9 +50,15 @@ python/.state/
 
 *.key
 *.pem
+
 credentials.json
 service-account*.json
 application_default_credentials.json
+
+
+# =========================
+# Generated / Personal Data
+# =========================
 
 public/data/
 python/products.json
@@ -60,7 +72,6 @@ python/products.json
 !.vscode/extensions.json
 
 .idea/
-.DS_Store
 
 *.suo
 *.ntvs*
@@ -73,5 +84,6 @@ python/products.json
 # OS
 # =========================
 
+.DS_Store
 Thumbs.db
 desktop.ini

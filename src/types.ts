@@ -3,6 +3,7 @@ export interface Product {
   url: string;
   target_price: number;
   current_price: number;
+  previous_price: number;
   below_target: boolean;
   difference: number;
 }

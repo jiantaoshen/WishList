@@ -16,6 +16,20 @@ import type {
   Product,
 } from "./types";
 
+import type {RunMetadata,} from "./types/run";
+
+import {
+  fetchLatestRun,
+} from "./services/runData";
+
+import {
+  SummaryCard,
+} from "./components/SummaryCard";
+
+import {
+  ScraperHealthCard,
+} from "./components/ScraperHealthCard";
+
 function App() {
   const [latestData, setLatestData] = useState<DataFile | null>(null);
 
@@ -30,6 +44,36 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const DATA_BASE_URL = "https://storage.googleapis.com/wishlist-example-price-data";
+
+  const [latestRun, setLatestRun] = useState<RunMetadata | null>(null);
+
+
+  useEffect(() => {
+
+    async function loadRun() {
+
+      try {
+
+        const run =
+          await fetchLatestRun();
+
+        setLatestRun(
+          run,
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Failed to load scraper health:",
+          error,
+        );
+      }
+    }
+
+    loadRun();
+
+  }, []);
+
 
   // =========================================================
   // Load data
@@ -123,10 +167,33 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">
-          Loading price data...
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+
+        <div className="text-center">
+
+          <div
+            className="
+              mx-auto
+              h-8
+              w-8
+              animate-spin
+              rounded-full
+              border-4
+              border-gray-200
+              border-t-gray-700
+            "
+          />
+
+          <p className="mt-4 text-sm font-medium text-gray-700">
+            Loading Price Watch
+          </p>
+
+          <p className="mt-1 text-xs text-gray-400">
+            Fetching the latest product data...
+          </p>
+
         </div>
+
       </div>
     );
   }
@@ -138,21 +205,114 @@ function App() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-        <div className="bg-white rounded-2xl border p-8 max-w-md w-full">
-          <h1 className="text-lg font-semibold text-gray-900">
-            Failed to load data
+
+        <div
+          className="
+            w-full
+            max-w-md
+            rounded-2xl
+            border
+            border-red-100
+            bg-white
+            p-8
+            shadow-sm
+          "
+        >
+
+          <div
+            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-full
+              bg-red-50
+              text-lg
+            "
+          >
+            !
+          </div>
+
+          <h1 className="mt-5 text-lg font-semibold text-gray-900">
+            Unable to load price data
           </h1>
 
-          <p className="text-sm text-red-500 mt-2">
-            {error}
+          <p className="mt-2 text-sm text-gray-500">
+            Price Watch could not retrieve the latest data.
           </p>
+
+          <div
+            className="
+              mt-4
+              rounded-xl
+              bg-red-50
+              px-4
+              py-3
+            "
+          >
+            <p className="text-xs text-red-600">
+              {error}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              window.location.reload()
+            }
+            className="
+              mt-6
+              w-full
+              rounded-xl
+              bg-gray-900
+              px-4
+              py-2.5
+              text-sm
+              font-medium
+              text-white
+              transition
+              hover:bg-gray-700
+            "
+          >
+            Try Again
+          </button>
+
         </div>
+
       </div>
     );
   }
 
   if (!latestData) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+
+        <div
+          className="
+            w-full
+            max-w-md
+            rounded-2xl
+            border
+            bg-white
+            p-8
+            text-center
+            shadow-sm
+          "
+        >
+
+          <h1 className="text-lg font-semibold text-gray-900">
+            No price data available
+          </h1>
+
+          <p className="mt-2 text-sm text-gray-500">
+            Price Watch has not received any product data yet.
+          </p>
+
+        </div>
+
+      </div>
+    );
   }
 
   // =========================================================
@@ -179,6 +339,7 @@ function App() {
     <ProductList
       data={latestData}
       history={history}
+      latestRun={latestRun}
       onSelectProduct={(product) =>
         setSelectedProduct(product)
       }
@@ -190,23 +351,236 @@ function App() {
 // =============================================================
 // Product List
 // =============================================================
+// =============================================================
+// Product List
+// =============================================================
+
+type ProductFilter =
+  | "all"
+  | "belowTarget"
+  | "priceDrops";
+
+type ProductSort =
+  | "name"
+  | "priceLow"
+  | "priceHigh"
+  | "biggestDrop";
+
 
 function ProductList({
   data,
   history,
+  latestRun,
   onSelectProduct,
 }: {
   data: DataFile;
   history: HistoryIndex | null;
+  latestRun: RunMetadata | null;
   onSelectProduct: (
     product: Product
   ) => void;
 }) {
-  const discountCount =
+
+  // =========================================================
+  // Dashboard summary
+  // =========================================================
+
+  const totalProducts =
+    data.data.length;
+
+  const hasProducts = totalProducts > 0;
+
+  const belowTarget =
     data.data.filter(
       (product) =>
         product.below_target
     ).length;
+
+  const priceDrops =
+    data.data.filter(
+      (product) =>
+        product.previous_price !== null &&
+        product.previous_price !== undefined &&
+        product.current_price <
+          product.previous_price
+    ).length;
+
+
+  // =========================================================
+  // Search / Filter / Sort
+  // =========================================================
+
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+  const [
+    filter,
+    setFilter,
+  ] = useState<ProductFilter>(
+    "all"
+  );
+
+  const [
+    sort,
+    setSort,
+  ] = useState<ProductSort>(
+    "name"
+  );
+
+
+  // =========================================================
+  // Visible products
+  // =========================================================
+
+  const visibleProducts =
+    useMemo(() => {
+
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
+
+      const filtered =
+        data.data.filter(
+          (product) => {
+
+            // -----------------------------------------------
+            // Search
+            // -----------------------------------------------
+
+            const matchesSearch =
+              query.length === 0 ||
+              product.name
+                .toLowerCase()
+                .includes(query);
+
+            if (!matchesSearch) {
+              return false;
+            }
+
+            // -----------------------------------------------
+            // Filter
+            // -----------------------------------------------
+
+            if (
+              filter ===
+              "belowTarget"
+            ) {
+              return product.below_target;
+            }
+
+            if (
+              filter ===
+              "priceDrops"
+            ) {
+              return (
+                product.previous_price !==
+                  null &&
+                product.previous_price !==
+                  undefined &&
+                product.current_price <
+                  product.previous_price
+              );
+            }
+
+            return true;
+          }
+        );
+
+
+      // =====================================================
+      // Sort
+      // =====================================================
+
+      return [...filtered].sort(
+        (a, b) => {
+
+          // -----------------------------------------------
+          // Name
+          // -----------------------------------------------
+
+          if (
+            sort === "name"
+          ) {
+            return a.name.localeCompare(
+              b.name
+            );
+          }
+
+          // -----------------------------------------------
+          // Price low → high
+          // -----------------------------------------------
+
+          if (
+            sort === "priceLow"
+          ) {
+            return (
+              a.current_price -
+              b.current_price
+            );
+          }
+
+          // -----------------------------------------------
+          // Price high → low
+          // -----------------------------------------------
+
+          if (
+            sort === "priceHigh"
+          ) {
+            return (
+              b.current_price -
+              a.current_price
+            );
+          }
+
+          // -----------------------------------------------
+          // Biggest price drop
+          // -----------------------------------------------
+
+          if (
+            sort ===
+            "biggestDrop"
+          ) {
+
+            const aDrop =
+              a.previous_price !== null &&
+              a.previous_price !==
+                undefined
+                ? a.previous_price -
+                  a.current_price
+                : 0;
+
+            const bDrop =
+              b.previous_price !== null &&
+              b.previous_price !==
+                undefined
+                ? b.previous_price -
+                  b.current_price
+                : 0;
+
+            return (
+              bDrop -
+              aDrop
+            );
+          }
+
+          return 0;
+        }
+      );
+
+    }, [
+      data.data,
+      searchQuery,
+      filter,
+      sort,
+    ]);
+
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -214,6 +588,7 @@ function ProductList({
       {/* Header */}
 
       <header className="bg-white border-b">
+
         <div className="max-w-5xl mx-auto px-5 sm:px-6 py-6">
 
           <div className="flex items-center justify-between">
@@ -230,6 +605,7 @@ function ProductList({
 
             </div>
 
+
             <div className="text-right">
 
               <p className="text-xs text-gray-400 uppercase tracking-wide">
@@ -245,6 +621,7 @@ function ProductList({
           </div>
 
         </div>
+
       </header>
 
 
@@ -252,85 +629,359 @@ function ProductList({
 
       <main className="max-w-5xl mx-auto px-5 sm:px-6 py-8">
 
-        {/* Summary */}
+        {/* ===================================================
+            Summary
+        =================================================== */}
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div
+          className="
+            grid
+            grid-cols-1
+            gap-4
+            md:grid-cols-2
+            xl:grid-cols-4
+            mb-8
+          "
+        >
 
-          <div className="bg-white border rounded-2xl p-5">
+          <SummaryCard
+            title="Products"
+            value={totalProducts}
+          />
 
-            <p className="text-sm text-gray-500">
-              Tracked Products
-            </p>
+          <SummaryCard
+            title="Below Target"
+            value={belowTarget}
+          />
 
-            <p className="text-3xl font-bold text-gray-900 mt-2">
-              {data.data.length}
-            </p>
+          <SummaryCard
+            title="Price Drops"
+            value={priceDrops}
+          />
 
-          </div>
-
-
-          <div className="bg-white border rounded-2xl p-5">
-
-            <p className="text-sm text-gray-500">
-              At Target Price
-            </p>
-
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {discountCount}
-            </p>
-
-          </div>
+          <ScraperHealthCard
+            run={latestRun}
+          />
 
         </div>
 
+        {/* Empty State */}
+        {!hasProducts && (
 
-        {/* Title */}
+          <div
+            className="
+              rounded-2xl
+              border
+              border-dashed
+              border-gray-300
+              bg-white
+              px-6
+              py-14
+              text-center
+            "
+          >
 
-        <div className="flex items-end justify-between mb-4">
+            <div
+              className="
+                mx-auto
+                flex
+                h-12
+                w-12
+                items-center
+                justify-center
+                rounded-full
+                bg-gray-100
+                text-xl
+              "
+            >
+              $
+            </div>
 
-          <div>
-
-            <h2 className="text-lg font-semibold text-gray-900">
-              Products
+            <h2 className="mt-4 font-semibold text-gray-900">
+              No products tracked yet
             </h2>
 
-            <p className="text-sm text-gray-500 mt-1">
-              Click a product to view price history
+            <p className="mt-2 text-sm text-gray-500">
+              Add products to products.json and run the price checker.
             </p>
 
           </div>
 
-          {history && (
-            <span className="text-xs text-gray-400">
-              {history.periods.length} weeks of history
-            </span>
-          )}
+        )}
 
-        </div>
+        {hasProducts && (
+          <>
+            {/* ===================================================
+                Product title
+            =================================================== */}
+
+            <div className="flex items-end justify-between mb-4">
+
+              <div>
+
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Products
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Click a product to view price history
+                </p>
+
+              </div>
+
+              {history && (
+                <span className="text-xs text-gray-400">
+                  {history.periods.length} weeks of history
+                </span>
+              )}
+            </div>
 
 
-        {/* Products */}
+            {/* ===================================================
+                Search
+            =================================================== */}
 
-        <div className="space-y-3">
+            <div className="mb-4">
 
-          {data.data.map(
-            (product) => (
-              <ProductCard
-                key={product.url}
-                product={product}
-                onClick={() =>
-                  onSelectProduct(
-                    product
+              <input
+                type="search"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchQuery(
+                    event.target.value
                   )
                 }
+                className="
+                  w-full
+                  rounded-xl
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-3
+                  text-sm
+                  text-gray-900
+                  outline-none
+                  transition
+                  placeholder:text-gray-400
+                  focus:border-gray-400
+                "
               />
-            )
-          )}
 
-        </div>
+            </div>
 
+
+            {/* ===================================================
+                Filters + Sort
+            =================================================== */}
+
+            <div
+              className="
+                flex
+                flex-col
+                gap-3
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+                mb-6
+              "
+            >
+
+              {/* Filters */}
+
+              <div className="flex flex-wrap gap-2">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilter("all")
+                  }
+                  className={`
+                    rounded-full
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    transition
+                    ${
+                      filter === "all"
+                        ? "bg-gray-900 text-white"
+                        : "bg-white border text-gray-600 hover:border-gray-400"
+                    }
+                  `}
+                >
+                  All
+                </button>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilter(
+                      "belowTarget"
+                    )
+                  }
+                  className={`
+                    rounded-full
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    transition
+                    ${
+                      filter ===
+                      "belowTarget"
+                        ? "bg-green-600 text-white"
+                        : "bg-white border text-gray-600 hover:border-gray-400"
+                    }
+                  `}
+                >
+                  Below Target
+                </button>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilter(
+                      "priceDrops"
+                    )
+                  }
+                  className={`
+                    rounded-full
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    transition
+                    ${
+                      filter ===
+                      "priceDrops"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white border text-gray-600 hover:border-gray-400"
+                    }
+                  `}
+                >
+                  Price Drops
+                </button>
+
+              </div>
+
+
+              {/* Sort */}
+
+              <select
+                value={sort}
+                onChange={(event) =>
+                  setSort(
+                    event.target
+                      .value as ProductSort
+                  )
+                }
+                className="
+                  rounded-xl
+                  border
+                  border-gray-200
+                  bg-white
+                  px-4
+                  py-2.5
+                  text-sm
+                  text-gray-700
+                  outline-none
+                  focus:border-gray-400
+                "
+              >
+
+                <option value="name">
+                  Name
+                </option>
+
+                <option value="priceLow">
+                  Price: Low to High
+                </option>
+
+                <option value="priceHigh">
+                  Price: High to Low
+                </option>
+
+                <option value="biggestDrop">
+                  Biggest Price Drop
+                </option>
+
+              </select>
+
+            </div>
+
+
+            {/* ===================================================
+                Results count
+            =================================================== */}
+
+            <p className="text-xs text-gray-400 mb-3">
+
+              Showing{" "}
+              {visibleProducts.length}{" "}
+              of{" "}
+              {data.data.length}{" "}
+              products
+
+            </p>
+
+
+            {/* ===================================================
+                Products
+            =================================================== */}
+
+            {visibleProducts.length > 0 ? (
+
+              <div className="space-y-3">
+
+                {visibleProducts.map(
+                  (product) => (
+
+                    <ProductCard
+                      key={product.url}
+                      product={product}
+                      onClick={() =>
+                        onSelectProduct(
+                          product
+                        )
+                      }
+                    />
+
+                  )
+                )}
+
+              </div>
+
+            ) : (
+
+              <div
+                className="
+                  bg-white
+                  border
+                  rounded-2xl
+                  px-6
+                  py-12
+                  text-center
+                "
+              >
+
+                <p className="font-medium text-gray-700">
+                  No products found
+                </p>
+
+                <p className="text-sm text-gray-400 mt-1">
+                  Try changing your search or filter.
+                </p>
+
+              </div>
+            )}
+          </>
+        )}
+        
       </main>
-
     </div>
   );
 }
@@ -512,7 +1163,6 @@ function ProductDetail({
 
   }, [history, product.url]);
 
-
   // =========================================================
   // Statistics
   // =========================================================
@@ -522,15 +1172,62 @@ function ProductDetail({
       (item) => item.price
     );
 
+
   const lowestPrice =
     prices.length > 0
       ? Math.min(...prices)
       : product.current_price;
 
+
   const highestPrice =
     prices.length > 0
       ? Math.max(...prices)
       : product.current_price;
+
+
+  const averagePrice =
+    prices.length > 0
+      ? prices.reduce(
+          (sum, price) =>
+            sum + price,
+          0
+        ) / prices.length
+      : product.current_price;
+
+
+  const previousPrice = product.previous_price ?? null;
+
+  const priceChangePercent =
+    previousPrice !== null &&
+    previousPrice !== 0
+      ? (
+          (
+            product.current_price -
+            previousPrice
+          ) /
+          previousPrice
+        ) * 100
+      : null;
+
+
+  const targetDifference =
+    product.current_price -
+    product.target_price;
+
+  function formatChange(
+    value: number | null
+  ) {
+
+    if (value === null) {
+      return "N/A";
+    }
+
+    if (value > 0) {
+      return `+${value.toFixed(1)}%`;
+    }
+
+    return `${value.toFixed(1)}%`;
+  }
 
 
   return (
@@ -619,13 +1316,45 @@ function ProductDetail({
 
 
         {/* Status */}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div
+          className="
+            grid
+            grid-cols-2
+            md:grid-cols-3
+            gap-4
+            mb-8
+          "
+        >
 
           <StatCard
             label="Target Price"
             value={`${product.target_price.toFixed(2)} kr`}
           />
+
+
+          <StatCard
+            label="Previous Price"
+            value={
+              previousPrice !== null
+                ? `${previousPrice.toFixed(2)} kr`
+                : "N/A"
+            }
+          />
+
+
+          <StatCard
+            label="Change"
+            value={
+              formatChange(
+                priceChangePercent
+              )
+            }
+            green={
+              priceChangePercent !== null &&
+              priceChangePercent < 0
+            }
+          />
+
 
           <StatCard
             label="Historical Low"
@@ -633,20 +1362,24 @@ function ProductDetail({
             green
           />
 
+
           <StatCard
             label="Historical High"
             value={`${highestPrice.toFixed(2)} kr`}
           />
 
-        </div>
 
+          <StatCard
+            label="Historical Average"
+            value={`${averagePrice.toFixed(2)} kr`}
+          />
+
+        </div>
 
         {/* Status badge */}
 
         <div className="mb-8">
-
           {product.below_target ? (
-
             <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3">
 
               <p className="text-sm font-medium text-green-700">
@@ -654,11 +1387,10 @@ function ProductDetail({
               </p>
 
               <p className="text-sm text-green-600 mt-1">
-                Below target by{" "}
                 {Math.abs(
-                  product.difference
+                  targetDifference
                 ).toFixed(2)}{" "}
-                kr
+                kr below target
               </p>
 
             </div>
@@ -668,14 +1400,12 @@ function ProductDetail({
             <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3">
 
               <p className="text-sm font-medium text-gray-700">
-                ⚪ Current PriceAbove target
+                Above target
               </p>
 
               <p className="text-sm text-gray-500 mt-1">
                 Needs to drop by{" "}
-                {product.difference.toFixed(
-                  2
-                )}{" "}
+                {targetDifference.toFixed(2)}{" "}
                 kr
               </p>
 
@@ -742,19 +1472,38 @@ function ProductDetail({
                     formatter={(
                       value,
                       name
-                    ) => [
-                      `${Number(
-                        value
-                      ).toFixed(2)} kr`,
-                      name === "price"
-                        ? "Price"
-                        : "Target Price",
-                    ]}
+                    ) => {
+
+                      const numericValue =
+                        Number(value);
+
+                      if (name === "price") {
+                        return [
+                          `${numericValue.toFixed(2)} kr`,
+                          "Price",
+                        ];
+                      }
+
+                      return [
+                        `${numericValue.toFixed(2)} kr`,
+                        "Target",
+                      ];
+                    }}
+                    labelFormatter={(label) =>
+                      `Period: ${label}`
+                    }
                   />
 
                   <ReferenceLine
                     y={product.target_price}
                     strokeDasharray="6 6"
+                    label={{
+                      value: `Target ${product.target_price.toFixed(
+                        0
+                      )} kr`,
+                      position: "insideTopRight",
+                      fontSize: 12,
+                    }}
                   />
 
                   <Line

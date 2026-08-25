@@ -8,30 +8,9 @@ The scraper runs locally because some monitored websites may block traffic from 
 
 The scraper is intended for low-frequency personal price monitoring of publicly accessible product information and should respect website access policies and terms.
 
-## Run the Frontend
-
-```bash
-npm install
-npm run dev
-```
-
-Local website:
-
-```text
-http://localhost:5173
-```
-
-## Run the Price Checker
-
-```bash
-cd python
-python -m pip install -r requirements.txt
-playwright install firefox
-python webscraping.py
-```
-
-## Products
-
+## Getting Started
+### 1. Configure `products.json` and `.env`
+#### Products
 Products are configured in:
 
 ```text
@@ -52,8 +31,7 @@ Example:
 ]
 ```
 
-## Environment Variables
-
+#### Environment Variables
 Create a `.env` file in the project root:
 
 ```env
@@ -66,6 +44,28 @@ EMAIL_TO=
 ```
 
 `SMTP_PASSWORD` can use an email provider App Password.
+
+### 2. Run the Price Checker
+
+```bash
+cd python
+python -m pip install -r requirements.txt
+playwright install firefox
+python webscraping.py
+```
+
+### 3. Run the Frontend
+
+```bash
+npm install
+npm run dev
+```
+
+Local website:
+
+```text
+http://localhost:5173
+```
 
 ## Tech Stack
 
@@ -159,12 +159,12 @@ Single Summary Email
 - Playwright screenshots, HTML snapshots, and traces for failed or suspicious checks
 - Automated tests with pytest
 - React dashboard deployed on Google Cloud Run
-
-## Future Work
-
-- Additional site-specific scraper adapters when needed
 - Improved dashboard statistics
 - Scraper health indicators in the frontend
 - Product filtering and sorting
 - Price-change and historical statistics
-- Improved notification preferences
+
+## Future Work
+- Additional site-specific scraper adapters when required
+- More notification preferences
+- Additional dashboard analytics when useful
