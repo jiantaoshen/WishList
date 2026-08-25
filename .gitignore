@@ -29,6 +29,7 @@ __pycache__/
 venv/
 env/
 debug/
+python/.state/
 
 .pytest_cache/
 
@@ -46,6 +47,9 @@ debug/
 credentials.json
 service-account*.json
 application_default_credentials.json
+
+public/data/
+python/products.json
 
 
 # =========================
