@@ -1,4 +1,5 @@
 export interface Product {
+  product_id: string;
   name: string;
   url: string;
   target_price: number;

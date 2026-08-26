@@ -1,7 +1,7 @@
 import type {
   DataFile,
   HistoryIndex,
-} from "../types";
+} from "../types/product";
 
 
 export const API_BASE_URL = "";

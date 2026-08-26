@@ -1,62 +1,32 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  AutomationSettings,
-} from "./components/AutomationSettings";
+import {AutomationSettings} from "./components/AutomationSettings";
+import {ProductManagement} from "./components/ProductManagement";
+import {EmailSettings} from "./components/EmailSettings";
+import {CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip,XAxis, YAxis } from "recharts";
+import type {DataFile, HistoryIndex, Product} from "./types/product";
+import type {RunMetadata} from "./types/run";
+import {fetchLatestRun} from "./services/runData";
+import {SummaryCard} from "./components/SummaryCard";
+import {fetchHistoryIndex, fetchHistoryPeriod} from "./services/historyData";
+import {fetchProducts} from "./services/productData";
+import {RunNowButton} from "./components/RunNowButton";
+import { ScraperDetail } from "./components/ScraperDetail";
+import { ManagementPage } from "./components/ManagementPage";
 
-import {
-  ProductManagement,
-} from "./components/ProductManagement";
 
-import {
-  EmailSettings,
-} from "./components/EmailSettings";
+const EMPTY_DATA: DataFile = {
+  period: "",
+  generated_at: "",
+  data: [],
+};
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
-import type {
-  DataFile,
-  HistoryIndex,
-  Product,
-} from "./types";
-
-import type {RunMetadata,} from "./types/run";
-
-import {
-  fetchLatestRun,
-} from "./services/runData";
-
-import {
-  SummaryCard,
-} from "./components/SummaryCard";
-
-import {
-  ScraperHealthCard,
-} from "./components/ScraperHealthCard";
-
-import {
-  fetchHistoryIndex,
-  fetchHistoryPeriod,
-} from "./services/historyData";
-
-import {
-  fetchProducts,
-} from "./services/productData";
-
-import {
-  RunNowButton,
-} from "./components/RunNowButton";
+type AppView = "dashboard"| "scraper"| "products" | "automation" | "email";
 
 function App() {
-  const [latestData, setLatestData] = useState<DataFile | null>(null);
+
+  const [view, setView] = useState<AppView>("dashboard");
+
+  const [latestData, setLatestData] = useState<DataFile>(EMPTY_DATA);
 
   const [history, setHistory] = useState<HistoryIndex | null>(null);
 
@@ -70,11 +40,11 @@ function App() {
 
   const [latestRun, setLatestRun] = useState<RunMetadata | null>(null);
 
+  const [showScraperDetail, setShowScraperDetail] = useState(false);
+
   const refreshDashboardData =
     useCallback(
-      async (
-        showLoading = false
-      ) => {
+      async (showLoading = false) => {
 
         if (showLoading) {
           setLoading(true);
@@ -83,94 +53,42 @@ function App() {
         setError(null);
 
         try {
-
-          // =============================================
-          // Products + History Index + Latest Run
-          // =============================================
-
-          const [
-            latest,
-            historyIndex,
-            run,
-          ] = await Promise.all([
+          // Get Products + History Index + Latest Run json
+          const [latest,historyIndex,run] = await Promise.all([
             fetchProducts(),
             fetchHistoryIndex(),
             fetchLatestRun(),
           ]);
 
+          setLatestData(latest);
+          setHistory(historyIndex);
+          setLatestRun(run);
 
-          setLatestData(
-            latest
-          );
-
-          setHistory(
-            historyIndex
-          );
-
-          setLatestRun(
-            run
-          );
-
-
-          // =============================================
-          // History
-          // =============================================
-
-          const results =
-            await Promise.all(
-              historyIndex.periods.map(
-                async (period) => {
-
-                  try {
-
-                    return await fetchHistoryPeriod(
-                      period
-                    );
-
-                  } catch (error) {
-
-                    console.error(
-                      `Failed to load history period ${period}:`,
-                      error
-                    );
-
-                    return null;
-                  }
+          // Get Data in History Folder
+          const results = await Promise.all(
+            historyIndex.periods.map(
+              async (period) => {
+                try {
+                  return await fetchHistoryPeriod(period);
+                } 
+                catch (error) {
+                  console.error(`Failed to load history period ${period}:`, error);
+                  return null;
                 }
-              )
-            );
-
-
-          const validHistory =
-            results.filter(
-              (
-                item
-              ): item is DataFile =>
-                item !== null
-            );
-
-
-          setHistoryData(
-            validHistory
+              }
+            )
           );
 
+          const validHistory = results.filter((item): item is DataFile => item !== null);
+          setHistoryData(validHistory);
         } catch (err) {
-
           if (err instanceof Error) {
-
-            setError(
-              err.message
-            );
-
-          } else {
-
-            setError(
-              "Failed to load data"
-            );
+            setError(err.message);
+          } 
+          else {
+            setError("Failed to load data");
           }
-
         } finally {
-
           if (showLoading) {
             setLoading(false);
           }
@@ -180,46 +98,23 @@ function App() {
     );
 
   useEffect(() => {
-
-    refreshDashboardData(
-      true
-    );
-
+    refreshDashboardData(true);
   }, [refreshDashboardData]);
 
   // =========================================================
   // Loading
   // =========================================================
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-
         <div className="text-center">
-
-          <div
-            className="
-              mx-auto
-              h-8
-              w-8
-              animate-spin
-              rounded-full
-              border-4
-              border-gray-200
-              border-t-gray-700
-            "
-          />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-700"/>
 
           <p className="mt-4 text-sm font-medium text-gray-700">
-            Loading Price Watch
-          </p>
-
-          <p className="mt-1 text-xs text-gray-400">
             Fetching the latest product data...
           </p>
 
         </div>
-
       </div>
     );
   }
@@ -227,56 +122,19 @@ function App() {
   // =========================================================
   // Error
   // =========================================================
-
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-
-        <div
-          className="
-            w-full
-            max-w-md
-            rounded-2xl
-            border
-            border-red-100
-            bg-white
-            p-8
-            shadow-sm
-          "
-        >
-
-          <div
-            className="
-              flex
-              h-10
-              w-10
-              items-center
-              justify-center
-              rounded-full
-              bg-red-50
-              text-lg
-            "
-          >
+        <div className=" w-full max-w-md rounded-2xl border border-red-100 bg-white p-8 shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-lg">
             !
           </div>
 
           <h1 className="mt-5 text-lg font-semibold text-gray-900">
-            Unable to load price data
+            Price Watch could not retrieve the latest data.
           </h1>
 
-          <p className="mt-2 text-sm text-gray-500">
-            Price Watch could not retrieve the latest data.
-          </p>
-
-          <div
-            className="
-              mt-4
-              rounded-xl
-              bg-red-50
-              px-4
-              py-3
-            "
-          >
+          <div className=" mt-4 rounded-xl bg-red-50 px-4 py-3">
             <p className="text-xs text-red-600">
               {error}
             </p>
@@ -284,59 +142,11 @@ function App() {
 
           <button
             type="button"
-            onClick={() =>
-              window.location.reload()
-            }
-            className="
-              mt-6
-              w-full
-              rounded-xl
-              bg-gray-900
-              px-4
-              py-2.5
-              text-sm
-              font-medium
-              text-white
-              transition
-              hover:bg-gray-700
-            "
-          >
+            onClick={() => window.location.reload()}
+            className="mt-6 w-full rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700">
             Try Again
           </button>
-
         </div>
-
-      </div>
-    );
-  }
-
-  if (!latestData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-
-        <div
-          className="
-            w-full
-            max-w-md
-            rounded-2xl
-            border
-            bg-white
-            p-8
-            text-center
-            shadow-sm
-          "
-        >
-
-          <h1 className="text-lg font-semibold text-gray-900">
-            No price data available
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Price Watch has not received any product data yet.
-          </p>
-
-        </div>
-
       </div>
     );
   }
@@ -344,7 +154,6 @@ function App() {
   // =========================================================
   // Product detail
   // =========================================================
-
   if (selectedProduct) {
     return (
       <ProductDetail
@@ -357,62 +166,125 @@ function App() {
     );
   }
 
+
+  if (view === "scraper") {
+    return (
+      <ScraperDetail
+        run={latestRun}
+        onBack={() =>
+          setView("dashboard")
+        }
+      />
+    );
+  }
+
+
+  if (view === "products") {
+    return (
+      <ManagementPage
+        title="Product Management"
+        description="Add, edit, and remove tracked products."
+        onBack={() =>
+          setView("dashboard")
+        }
+      >
+        <ProductManagement />
+      </ManagementPage>
+    );
+  }
+
+
+  if (view === "automation") {
+    return (
+      <ManagementPage
+        title="Automation"
+        description="Configure automatic price checks."
+        onBack={() =>
+          setView("dashboard")
+        }
+      >
+        <AutomationSettings />
+      </ManagementPage>
+    );
+  }
+
+
+  if (view === "email") {
+    return (
+      <ManagementPage
+        title="Email Settings"
+        description="Configure price alert notifications."
+        onBack={() =>
+          setView("dashboard")
+        }
+      >
+        <EmailSettings />
+      </ManagementPage>
+    );
+  }
+
+  // =========================================================
+  // Scraper detail
+  // =========================================================
+  if (showScraperDetail) {
+  return (
+    <ScraperDetail
+      run={latestRun}
+      onBack={() =>
+        setShowScraperDetail(false)
+      }
+    />
+  );
+  }
+
+  
+
   // =========================================================
   // Product list
   // =========================================================
-
   return (
     <ProductList
       data={latestData}
       history={history}
       latestRun={latestRun}
-      onRefresh={
-        refreshDashboardData
-      }
-      onSelectProduct={(product) =>
-        setSelectedProduct(product)
-      }
+      onRefresh={refreshDashboardData}
+      onManageProducts={() =>setView("products")}
+      onShowScraperDetail={() =>setShowScraperDetail(true)}
+      onShowAutomation={() =>setView("automation")}
+      onShowEmail={() => setView("email")}
+      onSelectProduct={(product) =>setSelectedProduct(product)}
     />
   );
 }
 
-
-// =============================================================
-// Product List
-// =============================================================
 // =============================================================
 // Product List
 // =============================================================
 
-type ProductFilter =
-  | "all"
-  | "belowTarget"
-  | "priceDrops";
+type ProductFilter = "all"  | "belowTarget" | "priceDrops";
 
-type ProductSort =
-  | "name"
-  | "priceLow"
-  | "priceHigh"
-  | "biggestDrop";
-
+type ProductSort = "name" | "priceLow" | "priceHigh" | "biggestDrop";
 
 function ProductList({
   data,
   history,
   latestRun,
   onRefresh,
+  onShowScraperDetail,
+  onManageProducts,
+  onShowAutomation,
+  onShowEmail,
   onSelectProduct,
 }: {
   data: DataFile;
   history: HistoryIndex | null;
   latestRun: RunMetadata | null;
-
-  onRefresh: () =>
-    Promise<void>;
-
-  onSelectProduct: (
-    product: Product
-  ) => void;
+  onRefresh: () => Promise<void>;
+  onShowScraperDetail: () => void;
+  onManageProducts: () => void;
+  onShowAutomation: () => void;
+  onShowEmail: () => void;
+  onSelectProduct: (product: Product) => void;
 }) {
 
   // =========================================================
@@ -611,6 +483,50 @@ function ProductList({
       sort,
     ]);
 
+  const scraperHealth = (() => {
+    if (!latestRun) {
+      return {
+        label: "Unknown",
+        dotClass: "bg-gray-400",
+      };
+    }
+
+    if (latestRun.status === "failed") {
+      return {
+        label: "Failed",
+        dotClass: "bg-red-500",
+      };
+    }
+
+    const finishedAt =
+      new Date(latestRun.finished_at).getTime();
+
+    if (!Number.isNaN(finishedAt)) {
+      const ageDays =
+        (Date.now() - finishedAt) /
+        (1000 * 60 * 60 * 24);
+
+      if (ageDays > 8) {
+        return {
+          label: "Stale",
+          dotClass: "bg-orange-500",
+        };
+      }
+    }
+
+    if (latestRun.status === "degraded") {
+      return {
+        label: "Warning",
+        dotClass: "bg-yellow-500",
+      };
+    }
+
+    return {
+      label: "Healthy",
+      dotClass: "bg-green-500",
+    };
+  })();
+
 
   // =========================================================
   // UI
@@ -622,46 +538,63 @@ function ProductList({
       {/* Header */}
 
       <header className="bg-white border-b">
-
         <div className="max-w-5xl mx-auto px-5 sm:px-6 py-6">
-
           <div className="flex items-center justify-between">
 
             <div>
-
               <h1 className="text-2xl font-bold tracking-tight text-gray-900">
                 Price Watch
               </h1>
 
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="mt-1 text-sm text-gray-500">
                 Product Price Tracker
               </p>
-
             </div>
 
+            <div className="flex items-center gap-6">
 
-            <RunNowButton
-              onCompleted={
-                onRefresh
-              }
-            />
+              <RunNowButton onCompleted={onRefresh}/>
 
-            <div className="text-right">
+              <div className="flex items-start gap-6">
 
-              <p className="text-xs text-gray-400 uppercase tracking-wide">
-                Last update
-              </p>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-wide text-gray-400">
+                    Last update
+                  </p>
 
-              <p className="text-sm font-medium text-gray-700 mt-1">
-                {data.period}
-              </p>
+                  <p className="mt-1 text-sm font-medium text-gray-700">
+                    {data.generated_at
+                      ? new Date(data.generated_at).toLocaleString()
+                      : "Never"}
+                  </p>
+                </div>
+
+
+                <div className="text-right">
+
+                  <div className="flex items-center justify-end gap-2">
+                    <span className={`h-2 w-2 rounded-full ${scraperHealth.dotClass}`} />
+
+                    <span className="text-sm font-medium text-gray-700">
+                      {scraperHealth.label}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onShowScraperDetail}
+                    className="mt-1 text-xs font-medium text-gray-400 transition hover:text-gray-900"
+                  >
+                    Scraper details →
+                  </button>
+
+                </div>
+
+              </div>
 
             </div>
-
           </div>
-
         </div>
-
       </header>
 
 
@@ -673,50 +606,40 @@ function ProductList({
             Summary
         =================================================== */}
 
-        <div
-          className="
-            grid
-            grid-cols-1
-            gap-4
-            md:grid-cols-2
-            xl:grid-cols-4
-            mb-8
-          "
-        >
+        <div className=" grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 mb-8">
+          <SummaryCard title="Products" value={totalProducts}/>
+          <SummaryCard title="Below Target" value={belowTarget}/>
+          <SummaryCard title="Price Drops" value={priceDrops}/>
+        </div>
 
-          <SummaryCard
-            title="Products"
-            value={totalProducts}
-          />
+        <div className="mt-5 flex flex-wrap items-center gap-1 border-t border-gray-100 pt-4">
 
-          <SummaryCard
-            title="Below Target"
-            value={belowTarget}
-          />
+          <button
+            type="button"
+            onClick={onManageProducts}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            Manage Products
+          </button>
 
-          <SummaryCard
-            title="Price Drops"
-            value={priceDrops}
-          />
+          <button
+            type="button"
+            onClick={onShowAutomation}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            Automation
+          </button>
 
-          <ScraperHealthCard
-            run={latestRun}
-          />
+          <button
+            type="button"
+            onClick={onShowEmail}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+          >
+            Email Settings
+          </button>
 
         </div>
         
-        <div className="mb-8">
-          <AutomationSettings />
-        </div>
-
-        <div className="mb-8">
-          <ProductManagement />
-        </div>
-
-        <div className="mb-8">
-          <EmailSettings />
-        </div>
-
         {/* Empty State */}
         {!hasProducts && (
 
@@ -733,8 +656,7 @@ function ProductList({
             "
           >
 
-            <div
-              className="
+            <div className="
                 mx-auto
                 flex
                 h-12
@@ -754,7 +676,7 @@ function ProductList({
             </h2>
 
             <p className="mt-2 text-sm text-gray-500">
-              Add products to products.json and run the price checker.
+                Add your first product in Product Management,then run a price check.
             </p>
 
           </div>
@@ -993,7 +915,7 @@ function ProductList({
                   (product) => (
 
                     <ProductCard
-                      key={product.url}
+                      key={product.product_id}
                       product={product}
                       onClick={() =>
                         onSelectProduct(
@@ -1186,8 +1108,7 @@ function ProductDetail({
         const item =
           historyData.data.find(
             (productItem) =>
-              productItem.url ===
-              product.url
+              productItem.product_id === product.product_id
           );
 
         if (!item) {

@@ -1,13 +1,12 @@
 import type {
   DataFile,
-} from "../types";
+} from "../types/product";
 
 
 export const API_BASE_URL = "";
 
 
-export async function fetchProducts():
-  Promise<DataFile | null> {
+export async function fetchProducts():Promise<DataFile> {
 
   const response = await fetch(
     `${API_BASE_URL}/api/products`,

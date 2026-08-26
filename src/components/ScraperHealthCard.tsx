@@ -1,12 +1,8 @@
-import type {
-  RunMetadata,
-} from "../types/run";
-
+import type { RunMetadata } from "../types/run";
 
 interface ScraperHealthCardProps {
   run: RunMetadata | null;
 }
-
 
 type HealthState =
   | "healthy"
@@ -14,47 +10,37 @@ type HealthState =
   | "failed"
   | "stale";
 
-
 const STALE_AFTER_DAYS = 8;
 
+const MILLISECONDS_PER_DAY =
+  1000 * 60 * 60 * 24;
 
 // ============================================================
 // Health state
 // ============================================================
-
-function getHealthState(
-  run: RunMetadata,
-): HealthState {
+function getHealthState(run: RunMetadata): HealthState {
 
   // Failed always has highest priority
   if (run.status === "failed") {
     return "failed";
   }
 
-  const finishedAt =
-    new Date(run.finished_at);
+  const finishedAt = new Date(run.finished_at);
+  const finishedAtMilliseconds = finishedAt.getTime();
 
-  const now =
-    new Date();
+  if (Number.isNaN(finishedAtMilliseconds)) {
+    return "warning";
+  }
 
-  const ageMilliseconds =
-    now.getTime() -
-    finishedAt.getTime();
+  const ageMilliseconds = Date.now() - finishedAtMilliseconds;
+  const ageDays = ageMilliseconds / MILLISECONDS_PER_DAY;
 
-  const ageDays =
-    ageMilliseconds /
-    (
-      1000 *
-      60 *
-      60 *
-      24
-    );
-
-  if (ageDays > STALE_AFTER_DAYS) {
+  if (ageDays > STALE_AFTER_DAYS
+  ) {
     return "stale";
   }
 
-  if (run.status === "degraded") {
+  if (run.status ==="degraded") {
     return "warning";
   }
 
@@ -68,7 +54,7 @@ function getHealthState(
 
 function getHealthLabel(
   health: HealthState,
-) {
+): string {
 
   switch (health) {
 
@@ -91,31 +77,19 @@ function getHealthLabel(
 // Badge classes
 // ============================================================
 
-function getHealthClasses(
-  health: HealthState,
-) {
-
+function getHealthClasses(health: HealthState): string {
   switch (health) {
-
     case "healthy":
-      return (
-        "bg-green-100 text-green-700"
-      );
+      return "bg-green-100 text-green-700";
 
     case "warning":
-      return (
-        "bg-yellow-100 text-yellow-700"
-      );
+      return "bg-yellow-100 text-yellow-700";
 
     case "failed":
-      return (
-        "bg-red-100 text-red-700"
-      );
+      return "bg-red-100 text-red-700";
 
     case "stale":
-      return (
-        "bg-orange-100 text-orange-700"
-      );
+      return "bg-orange-100 text-orange-700";
   }
 }
 
@@ -123,24 +97,11 @@ function getHealthClasses(
 // ============================================================
 // Component
 // ============================================================
-
-export function ScraperHealthCard({
-  run,
-}: ScraperHealthCardProps) {
-
+export function ScraperHealthCard({run}: ScraperHealthCardProps) {
   if (!run) {
-
     return (
-      <div
-        className="
-          rounded-xl
-          border
-          border-gray-200
-          bg-white
-          p-5
-          shadow-sm
-        "
-      >
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+
         <p className="text-sm text-gray-500">
           Scraper
         </p>
@@ -152,102 +113,37 @@ export function ScraperHealthCard({
         <p className="mt-1 text-xs text-gray-400">
           No run data available
         </p>
+
       </div>
     );
   }
 
 
-  const health =
-    getHealthState(run);
+  const health = getHealthState(run);
 
-
-  const lastCheckedDate =
-    new Date(
-      run.finished_at
-    );
-
-
-  const lastChecked =
-    lastCheckedDate
-      .toLocaleString();
-
-
-  const ageMilliseconds =
-    Date.now() -
-    lastCheckedDate.getTime();
-
-
-  const ageDays =
-    Math.floor(
-      ageMilliseconds /
-      (
-        1000 *
-        60 *
-        60 *
-        24
-      )
-    );
-
+  const lastCheckedDate =new Date(run.finished_at,);
+  const lastCheckedMilliseconds =lastCheckedDate.getTime();
+  const hasValidLastChecked =!Number.isNaN(lastCheckedMilliseconds,);
+  const lastChecked =hasValidLastChecked ? lastCheckedDate.toLocaleString() : "Unknown";
+  const ageMilliseconds = hasValidLastChecked ? Math.max(0,Date.now() - lastCheckedMilliseconds) : null;
+  const ageDays = ageMilliseconds !== null ? Math.floor(ageMilliseconds /MILLISECONDS_PER_DAY): null;
 
   return (
-    <div
-      className="
-        rounded-xl
-        border
-        border-gray-200
-        bg-white
-        p-5
-        shadow-sm
-      "
-    >
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
 
-      <div
-        className="
-          flex
-          items-center
-          justify-between
-        "
-      >
+      <div className="flex items-center justify-between">
 
-        <p
-          className="
-            text-sm
-            font-medium
-            text-gray-500
-          "
-        >
+        <p className="text-sm font-medium text-gray-500">
           Scraper
         </p>
 
-
-        <span
-          className={`
-            rounded-full
-            px-2.5
-            py-1
-            text-xs
-            font-medium
-            ${getHealthClasses(
-              health
-            )}
-          `}
-        >
-          {getHealthLabel(
-            health
-          )}
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getHealthClasses(health)}`}>
+          {getHealthLabel(health)}
         </span>
-
       </div>
 
 
-      <p
-        className="
-          mt-3
-          text-lg
-          font-semibold
-          text-gray-900
-        "
-      >
+      <p className="mt-3 text-lg font-semibold text-gray-900">
         {run.successful}
         {" / "}
         {run.total_products}
@@ -255,75 +151,44 @@ export function ScraperHealthCard({
       </p>
 
 
-      <p
-        className="
-          mt-1
-          text-sm
-          text-gray-500
-        "
-      >
+      <p className="mt-1 text-sm text-gray-500">
         {run.failed} failed ·{" "}
         {run.suspicious} suspicious
       </p>
 
 
-      <p
-        className="
-          mt-3
-          text-xs
-          text-gray-400
-        "
-      >
+      <p className="mt-3 text-xs text-gray-400">
         Last checked:{" "}
         {lastChecked}
       </p>
 
 
-      <p
-        className="
-          mt-1
-          text-xs
-          text-gray-400
-        "
-      >
-        {ageDays === 0
-          ? "Updated today"
-          : `${ageDays} day${
-              ageDays === 1
-                ? ""
-                : "s"
-            } ago`}
+      <p className="mt-1 text-xs text-gray-400">
+        {ageDays === null
+          ? "Update time unavailable"
+          : ageDays === 0
+            ? "Updated today"
+            : `${ageDays} day${
+                ageDays === 1
+                  ? ""
+                  : "s"
+              } ago`}
       </p>
 
 
-      <p
-        className="
-          mt-1
-          text-xs
-          text-gray-400
-        "
-      >
+      <p className="mt-1 text-xs text-gray-400">
         Duration:{" "}
         {run.duration_seconds.toFixed(
-          1
+          1,
         )}
         s
       </p>
 
 
       {health === "stale" && (
-
-        <p
-          className="
-            mt-3
-            text-xs
-            font-medium
-            text-orange-600
-          "
-        >
+        <p className="mt-3 text-xs font-medium text-orange-600">
           Price data may be outdated.
         </p>
-
       )}
 
     </div>
