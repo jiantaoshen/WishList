@@ -1,0 +1,6 @@
+@PriceWatch.Api_HostAddress = http://localhost:5074
+
+GET {{PriceWatch.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

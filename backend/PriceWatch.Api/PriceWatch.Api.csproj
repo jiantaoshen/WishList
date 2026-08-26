@@ -1,0 +1,176 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- =======================================================
+       Project settings
+       ======================================================= -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!--
+      React must be built BEFORE ASP.NET Core scans wwwroot
+      for Static Web Assets / compression.
+    -->
+    <PrepareForBuildDependsOn>BuildFrontend;$(PrepareForBuildDependsOn)</PrepareForBuildDependsOn>
+  </PropertyGroup>
+
+
+  <!-- =======================================================
+       NuGet packages
+       ======================================================= -->
+
+  <ItemGroup>
+    <PackageReference
+      Include="Microsoft.AspNetCore.OpenApi"
+      Version="10.0.11"
+    />
+  </ItemGroup>
+
+
+  <!-- =======================================================
+       Safe example configuration files
+
+       Real secrets / user configuration are NOT published.
+       ======================================================= -->
+
+  <ItemGroup>
+
+    <Content
+      Include="..\..\.env.example"
+      Link=".env.example"
+      CopyToPublishDirectory="PreserveNewest"
+      Condition="Exists('..\..\.env.example')"
+    />
+
+    <Content
+      Include="..\..\python\products.example.json"
+      Link="python\products.example.json"
+      CopyToPublishDirectory="PreserveNewest"
+      Condition="Exists('..\..\python\products.example.json')"
+    />
+
+  </ItemGroup>
+
+
+  <!-- =======================================================
+       Python application files
+
+       These files will be copied to:
+       publish/python/
+
+       Private/runtime files are excluded.
+       ======================================================= -->
+
+  <ItemGroup>
+
+    <PythonFiles
+      Include="..\..\python\**\*"
+      Exclude="
+        ..\..\python\products.json;
+        ..\..\python\products.example.json;
+        ..\..\python\.state\**;
+        ..\..\python\debug\**;
+        ..\..\python\tests\**;
+        ..\..\python\.pytest_cache\**;
+        ..\..\python\.venv\**;
+        ..\..\python\venv\**;
+        ..\..\python\env\**;
+        ..\..\python\__pycache__\**;
+        ..\..\python\**\__pycache__\**;
+        ..\..\python\**\*.pyc;
+        ..\..\python\**\*.pyo
+      "
+    />
+
+  </ItemGroup>
+
+
+  <!-- =======================================================
+       Build React
+
+       IMPORTANT:
+       This target runs through PrepareForBuildDependsOn.
+
+       That means Vite finishes writing wwwroot BEFORE
+       ASP.NET Core creates its Static Web Assets manifest
+       and Brotli/Gzip compressed assets.
+
+       vite.config.ts should output to:
+
+       backend/PriceWatch.Api/wwwroot
+       ======================================================= -->
+
+  <Target
+    Name="BuildFrontend"
+    Condition="'$(Configuration)' == 'Release' and '$(DesignTimeBuild)' != 'true'"
+  >
+
+    <Message
+      Text="Building Price Watch React frontend..."
+      Importance="high"
+    />
+
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\..\.."
+      Command="npm run build"
+    />
+
+  </Target>
+
+
+  <!-- =======================================================
+       Copy Python application into publish/python
+       ======================================================= -->
+
+  <Target
+    Name="CopyPythonFiles"
+    AfterTargets="Publish"
+  >
+
+    <Message
+      Text="Copying Price Watch Python files..."
+      Importance="high"
+    />
+
+    <Copy
+      SourceFiles="@(PythonFiles)"
+      DestinationFiles="@(PythonFiles->'$(PublishDir)python\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
+
+  </Target>
+
+
+  <!-- =======================================================
+       Create runtime directories
+
+       These intentionally start empty.
+
+       User data will be generated locally after installation.
+       ======================================================= -->
+
+  <Target
+    Name="CreateRuntimeDirectories"
+    AfterTargets="Publish"
+  >
+
+    <Message
+      Text="Creating Price Watch runtime directories..."
+      Importance="high"
+    />
+
+    <MakeDir
+      Directories="
+        $(PublishDir)data;
+        $(PublishDir)data\history;
+        $(PublishDir)data\runs;
+        $(PublishDir)data\settings;
+        $(PublishDir)python\.state
+      "
+    />
+
+  </Target>
+
+</Project>

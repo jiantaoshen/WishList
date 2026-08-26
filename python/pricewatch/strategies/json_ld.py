@@ -122,7 +122,7 @@ async def extract_json_ld_price(page,product_name,product_url):
         # Product not found
         # ====================================================
 
-        if selected_product is None:
+        if selected_product is None :
 
             print("❌ Could not find the matching Product for the current page")
 

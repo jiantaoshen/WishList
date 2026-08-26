@@ -3,19 +3,26 @@ import type {
 } from "../types/run";
 
 
+export const API_BASE_URL = "";
+
+
 export async function fetchLatestRun():
-  Promise<RunMetadata> {
+  Promise<RunMetadata | null> {
 
   const response = await fetch(
-    "/data/runs/latest.json",
+    `${API_BASE_URL}/api/runs/latest`,
     {
       cache: "no-store",
     },
   );
 
+  if (response.status === 404) {
+    return null;
+  }
+
   if (!response.ok) {
     throw new Error(
-      `Failed to load latest run: ${response.status}`,
+      `Failed to load latest run: ${response.status}`
     );
   }
 

@@ -1,4 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  AutomationSettings,
+} from "./components/AutomationSettings";
+
+import {
+  ProductManagement,
+} from "./components/ProductManagement";
+
+import {
+  EmailSettings,
+} from "./components/EmailSettings";
+
 import {
   CartesianGrid,
   Line,
@@ -30,6 +42,19 @@ import {
   ScraperHealthCard,
 } from "./components/ScraperHealthCard";
 
+import {
+  fetchHistoryIndex,
+  fetchHistoryPeriod,
+} from "./services/historyData";
+
+import {
+  fetchProducts,
+} from "./services/productData";
+
+import {
+  RunNowButton,
+} from "./components/RunNowButton";
+
 function App() {
   const [latestData, setLatestData] = useState<DataFile | null>(null);
 
@@ -43,123 +68,124 @@ function App() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const DATA_BASE_URL = "https://storage.googleapis.com/wishlist-example-price-data";
-
   const [latestRun, setLatestRun] = useState<RunMetadata | null>(null);
 
+  const refreshDashboardData =
+    useCallback(
+      async (
+        showLoading = false
+      ) => {
 
-  useEffect(() => {
-
-    async function loadRun() {
-
-      try {
-
-        const run =
-          await fetchLatestRun();
-
-        setLatestRun(
-          run,
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Failed to load scraper health:",
-          error,
-        );
-      }
-    }
-
-    loadRun();
-
-  }, []);
-
-
-  // =========================================================
-  // Load data
-  // =========================================================
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [
-          latestResponse,
-          historyIndexResponse,
-        ] = await Promise.all([
-          fetch(`${DATA_BASE_URL}/latest.json`),
-          fetch(`${DATA_BASE_URL}/history/index.json`),
-        ]);
-
-        if (!latestResponse.ok) {
-          throw new Error(
-            "Unable to load latest.json"
-          );
+        if (showLoading) {
+          setLoading(true);
         }
 
-        if (!historyIndexResponse.ok) {
-          throw new Error(
-            "Unable to load price history"
+        setError(null);
+
+        try {
+
+          // =============================================
+          // Products + History Index + Latest Run
+          // =============================================
+
+          const [
+            latest,
+            historyIndex,
+            run,
+          ] = await Promise.all([
+            fetchProducts(),
+            fetchHistoryIndex(),
+            fetchLatestRun(),
+          ]);
+
+
+          setLatestData(
+            latest
           );
-        }
 
-        const latest: DataFile =
-          await latestResponse.json();
+          setHistory(
+            historyIndex
+          );
 
-        const historyIndex: HistoryIndex =
-          await historyIndexResponse.json();
+          setLatestRun(
+            run
+          );
 
-        setLatestData(latest);
-        setHistory(historyIndex);
 
-        // ===================================================
-        // Load all history
-        // ===================================================
+          // =============================================
+          // History
+          // =============================================
 
-        const results =
-          await Promise.all(
-            historyIndex.periods.map(
-              async (period) => {
-                try {
-                  const response =
-                    await fetch(
-                      `${DATA_BASE_URL}/history/${period}.json`
+          const results =
+            await Promise.all(
+              historyIndex.periods.map(
+                async (period) => {
+
+                  try {
+
+                    return await fetchHistoryPeriod(
+                      period
                     );
 
-                  if (!response.ok) {
+                  } catch (error) {
+
+                    console.error(
+                      `Failed to load history period ${period}:`,
+                      error
+                    );
+
                     return null;
                   }
-
-                  return (
-                    (await response.json()) as DataFile
-                  );
-                } catch {
-                  return null;
                 }
-              }
-            )
+              )
+            );
+
+
+          const validHistory =
+            results.filter(
+              (
+                item
+              ): item is DataFile =>
+                item !== null
+            );
+
+
+          setHistoryData(
+            validHistory
           );
 
-        const validHistory =
-          results.filter(
-            (item): item is DataFile =>
-              item !== null
-          );
+        } catch (err) {
 
-        setHistoryData(validHistory);
+          if (err instanceof Error) {
 
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Failed to load data");
+            setError(
+              err.message
+            );
+
+          } else {
+
+            setError(
+              "Failed to load data"
+            );
+          }
+
+        } finally {
+
+          if (showLoading) {
+            setLoading(false);
+          }
         }
-      } finally {
-        setLoading(false);
-      }
-    }
+      },
+      []
+    );
 
-    loadData();
-  }, []);
+  useEffect(() => {
+
+    refreshDashboardData(
+      true
+    );
+
+  }, [refreshDashboardData]);
 
   // =========================================================
   // Loading
@@ -340,6 +366,9 @@ function App() {
       data={latestData}
       history={history}
       latestRun={latestRun}
+      onRefresh={
+        refreshDashboardData
+      }
       onSelectProduct={(product) =>
         setSelectedProduct(product)
       }
@@ -371,11 +400,16 @@ function ProductList({
   data,
   history,
   latestRun,
+  onRefresh,
   onSelectProduct,
 }: {
   data: DataFile;
   history: HistoryIndex | null;
   latestRun: RunMetadata | null;
+
+  onRefresh: () =>
+    Promise<void>;
+
   onSelectProduct: (
     product: Product
   ) => void;
@@ -606,6 +640,12 @@ function ProductList({
             </div>
 
 
+            <RunNowButton
+              onCompleted={
+                onRefresh
+              }
+            />
+
             <div className="text-right">
 
               <p className="text-xs text-gray-400 uppercase tracking-wide">
@@ -663,6 +703,18 @@ function ProductList({
             run={latestRun}
           />
 
+        </div>
+        
+        <div className="mb-8">
+          <AutomationSettings />
+        </div>
+
+        <div className="mb-8">
+          <ProductManagement />
+        </div>
+
+        <div className="mb-8">
+          <EmailSettings />
         </div>
 
         {/* Empty State */}

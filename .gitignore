@@ -60,7 +60,7 @@ application_default_credentials.json
 # Generated / Personal Data
 # =========================
 
-public/data/
+data/
 python/products.json
 
 

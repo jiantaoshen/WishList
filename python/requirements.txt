@@ -1,5 +1,4 @@
 playwright
 tzdata
-google-cloud-storage
 pytest
 python-dotenv

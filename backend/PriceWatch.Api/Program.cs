@@ -1,0 +1,682 @@
+using PriceWatch.Api.Models;
+using PriceWatch.Api.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+
+// ============================================================
+// Services
+// ============================================================
+
+builder.Services.AddSingleton<AppPaths>();
+
+builder.Services.AddSingleton<ScraperRunner>();
+
+builder.Services.AddSingleton<ScheduleService>();
+
+builder.Services.AddSingleton<ProductConfigService>();
+
+builder.Services.AddSingleton<EmailSettingsService>();
+
+
+// ============================================================
+// Development CORS
+//
+// Production uses the same ASP.NET Core origin for both
+// React and /api, so CORS is only needed while using Vite.
+// ============================================================
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "Frontend",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:5173"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    );
+});
+
+
+var app = builder.Build();
+
+
+// ============================================================
+// React static files
+// ============================================================
+
+app.UseDefaultFiles();
+
+app.UseStaticFiles();
+
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(
+        "Frontend"
+    );
+}
+
+
+// ============================================================
+// Health
+// ============================================================
+
+app.MapGet(
+    "/api/health",
+    () =>
+    {
+        return Results.Ok(
+            new
+            {
+                status = "ok",
+                service =
+                    "PriceWatch.Api",
+                timestamp =
+                    DateTimeOffset.UtcNow
+            }
+        );
+    }
+);
+
+
+// ============================================================
+// Current product price data
+// ============================================================
+
+app.MapGet(
+    "/api/products",
+    (
+        AppPaths paths
+    ) =>
+    {
+        if (!File.Exists(
+            paths.LatestFile
+        ))
+        {
+            return Results.Ok(
+                new
+                {
+                    period = "",
+                    generated_at = "",
+                    data =
+                        Array.Empty<object>()
+                }
+            );
+        }
+
+        return Results.File(
+            paths.LatestFile,
+            contentType:
+                "application/json"
+        );
+    }
+);
+
+
+// ============================================================
+// History index
+// ============================================================
+
+app.MapGet(
+    "/api/history",
+    (
+        AppPaths paths
+    ) =>
+    {
+        var indexFile =
+            Path.Combine(
+                paths.HistoryDirectory,
+                "index.json"
+            );
+
+        if (!File.Exists(
+            indexFile
+        ))
+        {
+            return Results.Ok(
+                new
+                {
+                    periods =
+                        Array.Empty<string>()
+                }
+            );
+        }
+
+        return Results.File(
+            indexFile,
+            contentType:
+                "application/json"
+        );
+    }
+);
+
+
+// ============================================================
+// History period
+// ============================================================
+
+app.MapGet(
+    "/api/history/{period}",
+    (
+        string period,
+        AppPaths paths
+    ) =>
+    {
+        // Prevent paths such as:
+        //
+        // ../../secret.json
+
+        if (
+            string.IsNullOrWhiteSpace(
+                period
+            )
+            ||
+            Path.GetFileName(
+                period
+            ) != period
+            ||
+            period.Contains('/')
+            ||
+            period.Contains('\\')
+        )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error =
+                        "Invalid history period"
+                }
+            );
+        }
+
+
+        var historyFile =
+            Path.Combine(
+                paths.HistoryDirectory,
+                $"{period}.json"
+            );
+
+
+        if (!File.Exists(
+            historyFile
+        ))
+        {
+            return Results.NotFound(
+                new
+                {
+                    error =
+                        "History period not found",
+
+                    period
+                }
+            );
+        }
+
+
+        return Results.File(
+            historyFile,
+            contentType:
+                "application/json"
+        );
+    }
+);
+
+
+// ============================================================
+// Latest scraper run
+// ============================================================
+
+app.MapGet(
+    "/api/runs/latest",
+    (
+        AppPaths paths
+    ) =>
+    {
+        var latestRunFile =
+            Path.Combine(
+                paths.RunsDirectory,
+                "latest.json"
+            );
+
+        if (!File.Exists(
+            latestRunFile
+        ))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(
+            latestRunFile,
+            contentType:
+                "application/json"
+        );
+    }
+);
+
+
+// ============================================================
+// Scraper status
+// ============================================================
+
+app.MapGet(
+    "/api/scraper/status",
+    (
+        ScraperRunner runner
+    ) =>
+    {
+        return Results.Ok(
+            new
+            {
+                running =
+                    runner.IsRunning,
+
+                process_id =
+                    runner.ProcessId
+            }
+        );
+    }
+);
+
+
+// ============================================================
+// Run scraper now
+// ============================================================
+
+app.MapPost(
+    "/api/scraper/run",
+    (
+        ScraperRunner runner
+    ) =>
+    {
+        var started =
+            runner.TryStart(
+                out var error
+            );
+
+
+        if (!started)
+        {
+            if (runner.IsRunning)
+            {
+                return Results.Conflict(
+                    new
+                    {
+                        error
+                    }
+                );
+            }
+
+
+            return Results.Problem(
+                detail:
+                    error
+            );
+        }
+
+
+        return Results.Accepted(
+            "/api/scraper/status",
+            new
+            {
+                status =
+                    "started",
+
+                message =
+                    "Price checker started."
+            }
+        );
+    }
+);
+
+
+// ============================================================
+// Schedule status
+// ============================================================
+
+app.MapGet(
+    "/api/schedule",
+    async (
+        ScheduleService service
+    ) =>
+    {
+        var schedule =
+            await service.GetAsync();
+
+
+        return Results.Ok(
+            schedule
+        );
+    }
+);
+
+
+// ============================================================
+// Create / update schedule
+// ============================================================
+
+app.MapPut(
+    "/api/schedule",
+    async (
+        ScheduleRequest request,
+        ScheduleService service
+    ) =>
+    {
+        try
+        {
+            var schedule =
+                await service.ApplyAsync(
+                    request
+                );
+
+
+            return Results.Ok(
+                schedule
+            );
+        }
+        catch (
+            ArgumentException exception
+        )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error =
+                        exception.Message
+                }
+            );
+        }
+        catch (
+            Exception exception
+        )
+        {
+            return Results.Problem(
+                detail:
+                    exception.Message
+            );
+        }
+    }
+);
+
+
+// ============================================================
+// Delete schedule
+// ============================================================
+
+app.MapDelete(
+    "/api/schedule",
+    async (
+        ScheduleService service
+    ) =>
+    {
+        try
+        {
+            await service.DeleteAsync();
+
+
+            return Results.NoContent();
+        }
+        catch (
+            Exception exception
+        )
+        {
+            return Results.Problem(
+                detail:
+                    exception.Message
+            );
+        }
+    }
+);
+
+
+// ============================================================
+// Product configuration
+// ============================================================
+
+app.MapGet(
+    "/api/product-config",
+    async (
+        ProductConfigService service
+    ) =>
+    {
+        var products =
+            await service.GetAllAsync();
+
+
+        return Results.Ok(
+            products
+        );
+    }
+);
+
+
+app.MapPost(
+    "/api/product-config",
+    async (
+        ProductConfig product,
+        ProductConfigService service
+    ) =>
+    {
+        try
+        {
+            var created =
+                await service.CreateAsync(
+                    product
+                );
+
+
+            return Results.Ok(
+                created
+            );
+        }
+        catch (
+            ArgumentException exception
+        )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error =
+                        exception.Message
+                }
+            );
+        }
+        catch (
+            InvalidOperationException exception
+        )
+        {
+            return Results.Conflict(
+                new
+                {
+                    error =
+                        exception.Message
+                }
+            );
+        }
+    }
+);
+
+
+app.MapPut(
+    "/api/product-config/{id}",
+    async (
+        string id,
+        ProductConfig product,
+        ProductConfigService service
+    ) =>
+    {
+        try
+        {
+            var updated =
+                await service.UpdateAsync(
+                    id,
+                    product
+                );
+
+
+            return Results.Ok(
+                updated
+            );
+        }
+        catch (
+            KeyNotFoundException
+        )
+        {
+            return Results.NotFound(
+                new
+                {
+                    error =
+                        "Product not found"
+                }
+            );
+        }
+        catch (
+            ArgumentException exception
+        )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error =
+                        exception.Message
+                }
+            );
+        }
+    }
+);
+
+
+app.MapDelete(
+    "/api/product-config/{id}",
+    async (
+        string id,
+        ProductConfigService service
+    ) =>
+    {
+        try
+        {
+            await service.DeleteAsync(
+                id
+            );
+
+
+            return Results.NoContent();
+        }
+        catch (
+            KeyNotFoundException
+        )
+        {
+            return Results.NotFound(
+                new
+                {
+                    error =
+                        "Product not found"
+                }
+            );
+        }
+    }
+);
+
+
+// ============================================================
+// Email settings
+// ============================================================
+
+app.MapGet(
+    "/api/settings/email",
+    async (
+        EmailSettingsService service
+    ) =>
+    {
+        var settings =
+            await service.GetAsync();
+
+
+        return Results.Ok(
+            settings
+        );
+    }
+);
+
+
+app.MapPut(
+    "/api/settings/email",
+    async (
+        UpdateEmailSettingsRequest request,
+        EmailSettingsService service
+    ) =>
+    {
+        try
+        {
+            var settings =
+                await service.SaveAsync(
+                    request
+                );
+
+
+            return Results.Ok(
+                settings
+            );
+        }
+        catch (
+            ArgumentException exception
+        )
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error =
+                        exception.Message
+                }
+            );
+        }
+    }
+);
+
+
+// ============================================================
+// Test email
+// ============================================================
+
+app.MapPost(
+    "/api/settings/email/test",
+    async (
+        EmailSettingsService service
+    ) =>
+    {
+        var result =
+            await service.TestAsync();
+
+
+        if (!result.Success)
+        {
+            return Results.BadRequest(
+                result
+            );
+        }
+
+
+        return Results.Ok(
+            result
+        );
+    }
+);
+
+
+// ============================================================
+// React SPA fallback
+//
+// Must stay after all /api endpoints.
+// ============================================================
+
+app.MapFallbackToFile(
+    "index.html"
+);
+
+
+app.Run();

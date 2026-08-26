@@ -7,4 +7,20 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:5074",
+        changeOrigin: true,
+      },
+    },
+  },
+
+  build: {
+    outDir:
+      "backend/PriceWatch.Api/wwwroot",
+
+    emptyOutDir: true,
+  },
 });

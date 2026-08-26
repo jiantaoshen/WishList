@@ -1,12 +1,11 @@
 import asyncio
+import sys
 import json
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest import result
 from zoneinfo import ZoneInfo
 from playwright.async_api import async_playwright
-from google.cloud import storage
-from google.api_core.exceptions import (NotFound, PreconditionFailed)
 from pricewatch.models import (ScrapeError,ScrapeResult)
 from pricewatch.scrapers.registry import get_scraper
 from pricewatch.validation import (PriceValidationStatus,validate_price)
@@ -22,6 +21,22 @@ from pricewatch.notifications import (
     save_notification_state,
     send_summary_notification
 )
+from pricewatch.run_lock import (
+    acquire_run_lock,
+    release_run_lock,
+)
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(
+        encoding="utf-8",
+        errors="replace",
+    )
+
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(
+        encoding="utf-8",
+        errors="replace",
+    )
 
 # ============================================================
 # Paths
@@ -30,7 +45,7 @@ from pricewatch.notifications import (
 PYTHON_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = PYTHON_DIR.parent
 PRODUCTS_FILE = PYTHON_DIR / "products.json"
-DATA_DIR = PROJECT_DIR / "public" / "data"
+DATA_DIR = PROJECT_DIR / "data"
 HISTORY_DIR = DATA_DIR / "history"
 LATEST_FILE = DATA_DIR / "latest.json"
 HISTORY_INDEX_FILE = HISTORY_DIR / "index.json"
@@ -41,11 +56,7 @@ ENV_FILE = PROJECT_DIR / ".env"
 STATE_DIR = PYTHON_DIR / ".state"
 NOTIFICATION_STATE_FILE = STATE_DIR / "notifications.json"
 
-
 load_dotenv(ENV_FILE)
-
-# Google Cloud Storage
-BUCKET_NAME = "wishlist-example-price-data"
 
 # ============================================================
 # Check one product
@@ -213,68 +224,50 @@ async def check_product(page,product,period):
 # ============================================================
 # Save JSON
 # ============================================================
-def save_json(file_path, data):
-    file_path.parent.mkdir(parents=True,exist_ok=True)
+def save_json(
+    file_path: Path,
+    data,
+) -> None:
+    file_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(
-            data,
-            f,
-            ensure_ascii=False,
-            indent=2
+    temp_file = (
+        file_path.with_suffix(
+            file_path.suffix + ".tmp"
         )
+    )
 
-# ============================================================
-#  Upload a new immutable JSON object.
-# 
-#  The upload fails if an object with the same name already exists.
-# ============================================================
-def upload_new_json_to_gcs(blob_name, data):
-    client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_name)
-    json_text = json.dumps(data, ensure_ascii=False,indent=2)
-    blob.upload_from_string(
-        json_text, 
-        content_type="application/json",
-        if_generation_match = 0 # Only create if no live object exists.
-        )
-    print(f"☁️ Created: gs://{BUCKET_NAME}/{blob_name}")
-
-# ============================================================
-#  Safely update a JSON object using 
-#  a Cloud Storage generation precondition
-# ============================================================
-def upload_json_to_gcs_safely(blob_name,data):
-    client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_name)
-
-    json_text = json.dumps(data,ensure_ascii=False,indent=2)
     try:
-        # Read the current object generation.
-        blob.reload()
+        with temp_file.open(
+            "w",
+            encoding="utf-8",
+            newline="\n",
+        ) as f:
+            json.dump(
+                data,
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
-        current_generation = (blob.generation)
+            f.write("\n")
+            f.flush()
 
-        blob.upload_from_string(
-            json_text,
-            content_type ="application/json",
-            if_generation_match = current_generation
+            os.fsync(
+                f.fileno()
+            )
+
+        os.replace(
+            temp_file,
+            file_path,
         )
 
-    except NotFound:
-        # Object does not exist yet.
-        blob.upload_from_string(
-            json_text,
-            content_type="application/json",
-            if_generation_match=0,
+    finally:
+        temp_file.unlink(
+            missing_ok=True
         )
-
-    except PreconditionFailed:
-        raise RuntimeError(f"GCS object changed while updating: {blob_name}")
-
-    print(f"☁️ Safe upload: gs://{BUCKET_NAME}/{blob_name}")
 
 # ============================================================
 # Update history index
@@ -436,12 +429,6 @@ async def main():
         # Latest scraper health snapshot
         save_json(RUN_LATEST_FILE,run_metadata.model_dump(mode="json"))
     
-        # Upload run metadata to Google Cloud Storage
-        upload_new_json_to_gcs(f"runs/{run_id}.json", run_metadata.model_dump(mode="json"))
-
-        # Update latest run metadata in Google Cloud Storage
-        upload_json_to_gcs_safely("runs/latest.json", run_metadata.model_dump(mode="json"))
-
         # ============================================================
         # Collect run notification
         # ============================================================
@@ -476,9 +463,16 @@ async def main():
         )
             
         if not results:
-            print("❌ No product prices were collected.")
-            print("Existing Cloud Storage data will NOT be overwritten.")
-            raise RuntimeError("Price check failed: no products collected")
+            print(
+                "❌ No product prices were collected."
+            )
+
+            print(
+                "Existing local price data "
+                "will NOT be overwritten."
+            )
+
+            return
 
         await context.tracing.stop()
         await browser.close()
@@ -500,18 +494,9 @@ async def main():
     # Save latest.json locally
     save_json(LATEST_FILE, output)
 
-    # Upload this week's history JSON
-    upload_json_to_gcs_safely(f"history/{period}.json",output)
-
     # Upload history/index.json
     with open(HISTORY_INDEX_FILE, "r", encoding="utf-8") as f:
         history_index = json.load(f)
-
-    # Update history/index.json to Google Cloud Storage
-    upload_json_to_gcs_safely("history/index.json", history_index)
-
-    # Update latest.json in Google Cloud Storage
-    upload_json_to_gcs_safely("latest.json",output)
 
     # Print summary
     print("\n")
@@ -530,4 +515,24 @@ async def main():
     print(f"History index: {HISTORY_INDEX_FILE}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    if not acquire_run_lock():
+
+        print(
+            "⚠️ Another Price Watch "
+            "scraper process is already running."
+        )
+
+        raise SystemExit(
+            2
+        )
+
+    try:
+
+        asyncio.run(
+            main()
+        )
+
+    finally:
+
+        release_run_lock()

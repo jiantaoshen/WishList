@@ -36,3 +36,7 @@ success = send_email_notification(
 print(
     f"Success: {success}"
 )
+
+raise SystemExit(
+    0 if success else 1
+)
