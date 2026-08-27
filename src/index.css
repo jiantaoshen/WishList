@@ -1,14 +1,75 @@
 @import "tailwindcss";
 
+
+/* ============================================================
+   Theme
+   ============================================================ */
+
+@theme {
+  /* App */
+  --color-app: #e6ebf1;
+  --color-surface: #f7f9fb;
+  --color-surface-muted: #e2e8f0;
+
+  /* Text */
+  --color-app-text: #0f172a;
+  --color-app-text-secondary: #475569;
+  --color-app-text-muted: #94a3b8;
+
+  /* Border */
+  --color-app-border: #cbd5e1;
+  --color-app-border-hover: #94a3b8;
+
+  /* Primary */
+  --color-primary: #1e293b;
+  --color-primary-hover: #334155;
+  --color-primary-text: #ffffff;
+
+  /* Success */
+  --color-success: #10b981;
+  --color-success-soft: #dff7ec;
+  --color-success-border: #9ee6c5;
+  --color-success-text: #047857;
+
+  /* Warning */
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fff3d6;
+  --color-warning-border: #f6d783;
+  --color-warning-text: #b45309;
+
+  /* Danger */
+  --color-danger: #ef4444;
+  --color-danger-soft: #fde8e8;
+  --color-danger-border: #f6bcbc;
+  --color-danger-text: #b91c1c;
+
+  /* Stale */
+  --color-stale: #f97316;
+  --color-stale-soft: #ffead8;
+  --color-stale-border: #f7c79f;
+  --color-stale-text: #c2410c;
+}
+
+
+/* ============================================================
+   Base
+   ============================================================ */
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-app);
 }
 
 body {
   margin: 0;
   min-width: 320px;
-  background: #f8fafc;
-  color: #0f172a;
+  min-height: 100vh;
+  background: var(--color-app);
+  color: var(--color-app-text);
   font-family:
     Inter,
     ui-sans-serif,
@@ -17,4 +78,229 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   Typography
+   ============================================================ */
+
+.app-title {
+  @apply shrink-0 text-lg font-bold tracking-tight text-app-text;
+}
+
+.app-page-title {
+  @apply text-2xl font-bold tracking-tight text-app-text;
+}
+
+.app-section-title {
+  @apply text-lg font-semibold text-app-text;
+}
+
+.app-card-title {
+  @apply text-sm font-medium text-app-text-secondary;
+}
+
+.app-body {
+  @apply text-sm text-app-text-secondary;
+}
+
+.app-label {
+  @apply text-xs font-medium uppercase tracking-wide text-app-text-muted;
+}
+
+.app-muted {
+  @apply text-xs text-app-text-muted;
+}
+
+.app-error {
+  @apply text-xs text-danger-text;
+}
+
+
+/* ============================================================
+   Cards
+   ============================================================ */
+
+.app-card {
+  @apply rounded-xl border border-app-border bg-surface shadow-sm;
+}
+
+.app-card-interactive {
+  @apply rounded-xl border border-app-border bg-surface shadow-sm transition;
+}
+
+.app-card-interactive:hover {
+  @apply border-app-border-hover shadow-md;
+}
+
+.app-card-muted {
+  @apply rounded-xl border border-app-border bg-surface-muted;
+}
+
+.app-card-dashed {
+  @apply rounded-xl border border-dashed border-app-border bg-surface;
+}
+
+.app-card-tag {
+  @apply inline-flex w-fit items-center rounded-full border text-sm font-medium
+}
+
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+.app-btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg text-xs font-medium whitespace-nowrap transition;
+}
+
+.app-btn:focus-visible {
+  @apply outline-none ring-2 ring-app-border-hover ring-offset-2;
+}
+
+.app-btn:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+
+
+/* Primary */
+
+.app-btn-primary {
+  @apply bg-primary text-primary-text;
+}
+
+.app-btn-primary:hover:not(:disabled) {
+  @apply bg-primary-hover;
+}
+
+
+/* Secondary */
+
+.app-btn-secondary {
+  @apply border border-app-border bg-surface text-app-text-secondary;
+}
+
+.app-btn-secondary:hover:not(:disabled) {
+  @apply border-app-border-hover bg-surface-muted text-app-text;
+}
+
+
+/* Ghost */
+
+.app-btn-ghost {
+  @apply bg-transparent text-app-text-secondary;
+}
+
+.app-btn-ghost:hover:not(:disabled) {
+  @apply bg-surface-muted text-app-text;
+}
+
+
+/* Danger */
+
+.app-btn-danger {
+  @apply border border-danger-border bg-danger-soft text-danger-text;
+}
+
+.app-btn-danger:hover:not(:disabled) {
+  @apply opacity-80;
+}
+
+
+/* Status button */
+
+.app-btn-status {
+  @apply border;
+}
+
+.app-btn-status:hover:not(:disabled) {
+  @apply opacity-80;
+}
+
+
+/* ============================================================
+   Navigation
+   ============================================================ */
+
+.app-nav-button {
+  @apply relative flex h-full items-center whitespace-nowrap text-sm font-medium text-app-text-secondary transition;
+}
+
+.app-nav-button:hover {
+  @apply text-app-text;
+}
+
+.app-nav-button-active {
+  @apply text-app-text;
+}
+
+.app-nav-button-active::after {
+  content: "";
+  @apply absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary;
+}
+
+
+/* ============================================================
+   Form Controls
+   ============================================================ */
+
+.app-input {
+  @apply w-full rounded-xl border border-app-border bg-surface px-4 py-3 text-sm text-app-text outline-none transition;
+}
+
+.app-input::placeholder {
+  color: var(--color-app-text-muted);
+}
+
+.app-input:focus {
+  @apply border-app-border-hover;
+}
+
+.app-select {
+  @apply rounded-xl border border-app-border bg-surface px-4 py-2.5 text-sm text-app-text-secondary outline-none transition;
+}
+
+.app-select:focus {
+  @apply border-app-border-hover;
+}
+
+
+/* ============================================================
+   Status
+   ============================================================ */
+
+.status-success {
+  @apply border-success-border bg-success-soft text-success-text;
+}
+
+.status-warning {
+  @apply border-warning-border bg-warning-soft text-warning-text;
+}
+
+.status-danger {
+  @apply border-danger-border bg-danger-soft text-danger-text;
+}
+
+.status-stale {
+  @apply border-stale-border bg-stale-soft text-stale-text;
+}
+
+.status-unknown {
+  @apply border-app-border bg-surface-muted text-app-text-secondary;
 }

@@ -9,28 +9,14 @@ from pricewatch.notifications import (
     send_email_notification,
 )
 
+PYTHON_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = PYTHON_DIR.parent
 
-PYTHON_DIR = (
-    Path(__file__)
-    .resolve()
-    .parent
-)
-
-PROJECT_DIR = (
-    PYTHON_DIR.parent
-)
-
-load_dotenv(
-    PROJECT_DIR / ".env"
-)
-
+load_dotenv(PROJECT_DIR / ".env")
 
 success = send_email_notification(
     subject="Price Watch Test",
-    body=(
-        "This is a test email "
-        "from Price Watch."
-    ),
+    body=("This is a test email from Price Watch.")
 )
 
 print(

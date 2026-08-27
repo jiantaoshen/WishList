@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   deleteSchedule,
@@ -21,60 +18,25 @@ const DAYS = [
 ];
 
 
+// =============================================================
+// Automation Settings
+// =============================================================
+
 export function AutomationSettings() {
 
-  const [
-    enabled,
-    setEnabled,
-  ] = useState(false);
-
-  const [
-    day,
-    setDay,
-  ] = useState("Monday");
-
-  const [
-    time,
-    setTime,
-  ] = useState("08:00");
-
-  const [
-    runIfMissed,
-    setRunIfMissed,
-  ] = useState(true);
-
-  const [
-    taskExists,
-    setTaskExists,
-  ] = useState(false);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  );
-
-  const [
-    success,
-    setSuccess,
-  ] = useState<string | null>(
-    null
-  );
+  const [enabled, setEnabled] = useState(false);
+  const [day, setDay] = useState("Monday");
+  const [time, setTime] = useState("08:00");
+  const [runIfMissed, setRunIfMissed] = useState(true);
+  const [taskExists, setTaskExists] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
 
   // =========================================================
-  // Load existing schedule
+  // Load Existing Schedule
   // =========================================================
 
   useEffect(() => {
@@ -83,42 +45,22 @@ export function AutomationSettings() {
 
       try {
 
-        const schedule =
-          await fetchSchedule();
+        const schedule = await fetchSchedule();
 
-        setEnabled(
-          schedule.enabled
-        );
-
-        setDay(
-          schedule.day
-        );
-
-        setTime(
-          schedule.time
-        );
-
-        setRunIfMissed(
-          schedule.runIfMissed
-        );
-
-        setTaskExists(
-          schedule.taskExists
-        );
+        setEnabled(schedule.enabled);
+        setDay(schedule.day);
+        setTime(schedule.time);
+        setRunIfMissed(schedule.runIfMissed);
+        setTaskExists(schedule.taskExists);
 
       } catch (error) {
 
-        if (
-          error instanceof Error
-        ) {
-          setError(
-            error.message
-          );
-        }
+        if (error instanceof Error) { setError(error.message); }
 
       } finally {
 
         setLoading(false);
+
       }
     }
 
@@ -140,55 +82,32 @@ export function AutomationSettings() {
 
     try {
 
-      const schedule =
-        await saveSchedule({
-          enabled,
-          day,
-          time,
-          runIfMissed,
-        });
+      const schedule = await saveSchedule({
+        enabled,
+        day,
+        time,
+        runIfMissed,
+      });
 
-      setEnabled(
-        schedule.enabled
-      );
-
-      setDay(
-        schedule.day
-      );
-
-      setTime(
-        schedule.time
-      );
-
-      setRunIfMissed(
-        schedule.runIfMissed
-      );
-
-      setTaskExists(
-        schedule.taskExists
-      );
-
-      setSuccess(
-        "Schedule saved successfully."
-      );
+      setEnabled(schedule.enabled);
+      setDay(schedule.day);
+      setTime(schedule.time);
+      setRunIfMissed(schedule.runIfMissed);
+      setTaskExists(schedule.taskExists);
+      setSuccess("Schedule saved successfully.");
 
     } catch (error) {
 
-      if (
-        error instanceof Error
-      ) {
-        setError(
-          error.message
-        );
+      if (error instanceof Error) {
+        setError(error.message);
       } else {
-        setError(
-          "Failed to save schedule."
-        );
+        setError("Failed to save schedule.");
       }
 
     } finally {
 
       setSaving(false);
+
     }
   }
 
@@ -199,14 +118,9 @@ export function AutomationSettings() {
 
   async function handleDelete() {
 
-    const confirmed =
-      window.confirm(
-        "Delete the Price Watch scheduled task?"
-      );
+    const confirmed = window.confirm("Delete the Price Watch scheduled task?");
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) { return; }
 
     setSaving(true);
     setError(null);
@@ -218,28 +132,20 @@ export function AutomationSettings() {
 
       setEnabled(false);
       setTaskExists(false);
-
-      setSuccess(
-        "Schedule deleted."
-      );
+      setSuccess("Schedule deleted.");
 
     } catch (error) {
 
-      if (
-        error instanceof Error
-      ) {
-        setError(
-          error.message
-        );
+      if (error instanceof Error) {
+        setError(error.message);
       } else {
-        setError(
-          "Failed to delete schedule."
-        );
+        setError("Failed to delete schedule.");
       }
 
     } finally {
 
       setSaving(false);
+
     }
   }
 
@@ -249,17 +155,9 @@ export function AutomationSettings() {
   // =========================================================
 
   if (loading) {
-
     return (
-      <div
-        className="
-          rounded-2xl
-          border
-          bg-white
-          p-6
-        "
-      >
-        <p className="text-sm text-gray-500">
+      <div className="app-card p-6">
+        <p className="app-body">
           Loading automation settings...
         </p>
       </div>
@@ -272,192 +170,76 @@ export function AutomationSettings() {
   // =========================================================
 
   return (
-    <section
-      className="
-        rounded-2xl
-        border
-        bg-white
-        p-6
-      "
-    >
+    <section className="app-card p-6">
 
-      <div
-        className="
-          flex
-          flex-col
-          gap-2
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
-        "
-      >
+      {/* Header */}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 
         <div>
-
-          <h2
-            className="
-              text-lg
-              font-semibold
-              text-gray-900
-            "
-          >
+          <h2 className="app-page-title">
             Automation
           </h2>
 
-          <p
-            className="
-              mt-1
-              text-sm
-              text-gray-500
-            "
-          >
+          <p className="app-body mt-1">
             Manage the Windows scheduled price check.
           </p>
-
         </div>
 
 
-        <span
-          className={`
-            inline-flex
-            w-fit
-            rounded-full
-            px-3
-            py-1
-            text-xs
-            font-medium
-            ${
-              enabled &&
-              taskExists
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-600"
-            }
-          `}
-        >
-
-          {enabled &&
-          taskExists
-            ? "Active"
-            : taskExists
-              ? "Disabled"
-              : "Not configured"}
-
+        <span className={`app-card-tag px-3 py-1 ${enabled && taskExists ? "status-success" : "status-unknown"}`}>
+          {enabled && taskExists ? "Active" : taskExists ? "Disabled" : "Not configured"}
         </span>
 
       </div>
 
 
-      <div
-        className="
-          mt-6
-          grid
-          gap-5
-          md:grid-cols-2
-        "
-      >
+      {/* Settings */}
+
+      <div className="mt-6 grid gap-5 md:grid-cols-2">
 
         {/* Enabled */}
 
-        <label
-          className="
-            flex
-            items-center
-            justify-between
-            gap-4
-            rounded-xl
-            border
-            px-4
-            py-3
-          "
-        >
+        <label className="app-card-dashed flex items-center justify-between gap-4 px-4 py-3">
 
           <div>
-
-            <p
-              className="
-                text-sm
-                font-medium
-                text-gray-900
-              "
-            >
+            <p className="text-sm font-medium text-app-text">
               Enable automatic checks
             </p>
 
-            <p
-              className="
-                mt-1
-                text-xs
-                text-gray-500
-              "
-            >
+            <p className="app-muted mt-1">
               Run Price Watch automatically.
             </p>
-
           </div>
-
 
           <input
             type="checkbox"
             checked={enabled}
-            onChange={(event) =>
-              setEnabled(
-                event.target.checked
-              )
-            }
+            onChange={(event) => setEnabled(event.target.checked)}
             className="h-5 w-5"
           />
 
         </label>
 
 
-        {/* Run if missed */}
+        {/* Run If Missed */}
 
-        <label
-          className="
-            flex
-            items-center
-            justify-between
-            gap-4
-            rounded-xl
-            border
-            px-4
-            py-3
-          "
-        >
+        <label className="app-card-dashed flex items-center justify-between gap-4 px-4 py-3">
 
           <div>
-
-            <p
-              className="
-                text-sm
-                font-medium
-                text-gray-900
-              "
-            >
+            <p className="text-sm font-medium text-app-text">
               Run if missed
             </p>
 
-            <p
-              className="
-                mt-1
-                text-xs
-                text-gray-500
-              "
-            >
+            <p className="app-muted mt-1">
               Run when Windows becomes available again.
             </p>
-
           </div>
-
 
           <input
             type="checkbox"
             checked={runIfMissed}
-            onChange={(event) =>
-              setRunIfMissed(
-                event.target.checked
-              )
-            }
+            onChange={(event) => setRunIfMissed(event.target.checked)}
             className="h-5 w-5"
           />
 
@@ -470,11 +252,7 @@ export function AutomationSettings() {
 
           <label
             htmlFor="schedule-day"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Day
           </label>
@@ -482,39 +260,17 @@ export function AutomationSettings() {
           <select
             id="schedule-day"
             value={day}
-            onChange={(event) =>
-              setDay(
-                event.target.value
-              )
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              border-gray-200
-              bg-white
-              px-4
-              py-3
-              text-sm
-              outline-none
-              focus:border-gray-400
-            "
+            onChange={(event) => setDay(event.target.value)}
+            className="app-select mt-2 w-full"
           >
-
-            {DAYS.map(
-              (item) => (
-
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-
-              )
-            )}
-
+            {DAYS.map((item) => (
+              <option
+                key={item}
+                value={item}
+              >
+                {item}
+              </option>
+            ))}
           </select>
 
         </div>
@@ -526,11 +282,7 @@ export function AutomationSettings() {
 
           <label
             htmlFor="schedule-time"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Time
           </label>
@@ -539,24 +291,8 @@ export function AutomationSettings() {
             id="schedule-time"
             type="time"
             value={time}
-            onChange={(event) =>
-              setTime(
-                event.target.value
-              )
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              border-gray-200
-              bg-white
-              px-4
-              py-3
-              text-sm
-              outline-none
-              focus:border-gray-400
-            "
+            onChange={(event) => setTime(event.target.value)}
+            className="app-input mt-2"
           />
 
         </div>
@@ -567,115 +303,45 @@ export function AutomationSettings() {
       {/* Messages */}
 
       {error && (
-
-        <div
-          className="
-            mt-5
-            rounded-xl
-            bg-red-50
-            px-4
-            py-3
-          "
-        >
-          <p
-            className="
-              text-sm
-              text-red-600
-            "
-          >
+        <div className="status-danger mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
             {error}
           </p>
         </div>
-
       )}
 
-
       {success && (
-
-        <div
-          className="
-            mt-5
-            rounded-xl
-            bg-green-50
-            px-4
-            py-3
-          "
-        >
-          <p
-            className="
-              text-sm
-              text-green-700
-            "
-          >
+        <div className="status-success mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
             {success}
           </p>
         </div>
-
       )}
 
 
       {/* Actions */}
 
-      <div
-        className="
-          mt-6
-          flex
-          flex-wrap
-          gap-3
-        "
-      >
+      <div className="mt-6 flex flex-wrap gap-3">
 
         <button
           type="button"
           disabled={saving}
           onClick={handleSave}
-          className="
-            rounded-xl
-            bg-gray-900
-            px-5
-            py-2.5
-            text-sm
-            font-medium
-            text-white
-            transition
-            hover:bg-gray-700
-            disabled:cursor-not-allowed
-            disabled:bg-gray-300
-          "
+          className="app-btn app-btn-primary px-5 py-2.5 text-sm"
         >
-
-          {saving
-            ? "Saving..."
-            : "Save Schedule"}
-
+          {saving ? "Saving..." : "Save Schedule"}
         </button>
 
 
         {taskExists && (
-
           <button
             type="button"
             disabled={saving}
             onClick={handleDelete}
-            className="
-              rounded-xl
-              border
-              border-red-200
-              bg-white
-              px-5
-              py-2.5
-              text-sm
-              font-medium
-              text-red-600
-              transition
-              hover:bg-red-50
-              disabled:cursor-not-allowed
-              disabled:opacity-50
-            "
+            className="app-btn app-btn-danger px-5 py-2.5 text-sm"
           >
             Delete Schedule
           </button>
-
         )}
 
       </div>

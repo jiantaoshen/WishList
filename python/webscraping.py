@@ -303,7 +303,7 @@ async def main():
         return
 
     # Read products.json
-    with open(PRODUCTS_FILE,"r",encoding="utf-8",) as f:
+    with open(PRODUCTS_FILE,"r", encoding="utf-8-sig",) as f:
         products = json.load(f)
 
     # Load notification state

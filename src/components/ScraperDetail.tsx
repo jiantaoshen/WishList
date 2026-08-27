@@ -1,69 +1,106 @@
 import type { RunMetadata } from "../types/run";
+import { getScraperHealth } from "../utils/scraperHealth";
+
 
 interface ScraperDetailProps {
   run: RunMetadata | null;
-  onBack: () => void;
 }
+
+interface DetailItemProps {
+  label: string;
+  value: string;
+}
+
+
+// =============================================================
+// Scraper Detail
+// =============================================================
 
 export function ScraperDetail({
   run,
-  onBack,
 }: ScraperDetailProps) {
 
+  const scraperHealth =
+    getScraperHealth(
+      run,
+    );
+
+
+  const lastCheckedDate =
+    run
+      ? new Date(
+          run.finished_at,
+        )
+      : null;
+
+
+  const hasValidLastChecked =
+    lastCheckedDate !== null &&
+    !Number.isNaN(
+      lastCheckedDate.getTime(),
+    );
+
+
+  const lastChecked =
+    hasValidLastChecked &&
+    lastCheckedDate
+      ? lastCheckedDate.toLocaleString()
+      : "Unknown";
+
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
 
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-5xl px-5 py-5 sm:px-6">
+      {/* Header */}
 
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm text-gray-500 transition hover:text-gray-900"
-          >
-            ← Back to Dashboard
-          </button>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 
-        </div>
-      </header>
-
-
-      <main className="mx-auto max-w-5xl px-5 py-8 sm:px-6">
-
-        <div className="mb-8">
-
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div>
+          <h1 className="app-page-title">
             Scraper Details
           </h1>
 
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="app-body mt-1">
             Status and information from the latest price check.
+          </p>
+        </div>
+
+
+        <span className={`app-card-tag px-3 py-1.5 ${scraperHealth.badgeClass}`}>
+          <span className={`mr-2 h-2 w-2 rounded-full ${scraperHealth.dotClass}`} />
+          {scraperHealth.label}
+        </span>
+
+      </div>
+
+
+      {!run ? (
+
+        <div className="app-card-dashed px-6 py-14 text-center">
+
+          <h2 className="app-section-title">
+            No scraper runs yet
+          </h2>
+
+          <p className="app-body mt-2">
+            Run the price checker to generate scraper information.
           </p>
 
         </div>
 
+      ) : (
 
-        {!run ? (
+        <>
 
-          <div className="rounded-2xl border bg-white p-6">
+          {/* Summary */}
 
-            <p className="font-medium text-gray-900">
-              No scraper run available
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Run the price checker to generate scraper information.
-            </p>
-
-          </div>
-
-        ) : (
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
             <DetailCard
-              label="Status"
-              value={run.status}
+              label="Run Status"
+              value={formatRunStatus(
+                run.status,
+              )}
             />
 
             <DetailCard
@@ -73,12 +110,16 @@ export function ScraperDetail({
 
             <DetailCard
               label="Failed"
-              value={String(run.failed)}
+              value={String(
+                run.failed,
+              )}
             />
 
             <DetailCard
               label="Suspicious"
-              value={String(run.suspicious)}
+              value={String(
+                run.suspicious,
+              )}
             />
 
             <DetailCard
@@ -88,42 +129,157 @@ export function ScraperDetail({
 
             <DetailCard
               label="Last Checked"
-              value={
-                new Date(
-                  run.finished_at,
-                ).toLocaleString()
-              }
+              value={lastChecked}
             />
 
           </div>
 
-        )}
 
-      </main>
+          {/* Latest Run */}
+
+          <div className="app-card overflow-hidden">
+
+            <div className="border-b border-app-border px-5 py-4">
+
+              <h2 className="app-section-title">
+                Latest Run
+              </h2>
+
+              <p className="app-body mt-1">
+                Result summary from the most recent scraper execution.
+              </p>
+
+            </div>
+
+
+            <div className="divide-y divide-app-border">
+
+              <DetailRow
+                label="Health"
+                value={scraperHealth.label}
+              />
+
+              <DetailRow
+                label="Run Status"
+                value={formatRunStatus(
+                  run.status,
+                )}
+              />
+
+              <DetailRow
+                label="Products Checked"
+                value={String(
+                  run.total_products,
+                )}
+              />
+
+              <DetailRow
+                label="Successful"
+                value={String(
+                  run.successful,
+                )}
+              />
+
+              <DetailRow
+                label="Failed"
+                value={String(
+                  run.failed,
+                )}
+              />
+
+              <DetailRow
+                label="Suspicious"
+                value={String(
+                  run.suspicious,
+                )}
+              />
+
+              <DetailRow
+                label="Duration"
+                value={`${run.duration_seconds.toFixed(1)} s`}
+              />
+
+              <DetailRow
+                label="Last Checked"
+                value={lastChecked}
+              />
+
+            </div>
+
+          </div>
+
+        </>
+
+      )}
+
+    </>
+  );
+}
+
+
+// =============================================================
+// Run Status
+// =============================================================
+
+function formatRunStatus(
+  status: RunMetadata["status"],
+): string {
+
+  switch (status) {
+
+    case "success":
+      return "Success";
+
+    case "degraded":
+      return "Degraded";
+
+    case "failed":
+      return "Failed";
+
+    default:
+      return String(
+        status,
+      );
+  }
+}
+
+
+// =============================================================
+// Detail Card
+// =============================================================
+
+function DetailCard({label, value}: DetailItemProps) {
+
+  return (
+    <div className="app-card p-5">
+
+      <p className="app-card-title">
+        {label}
+      </p>
+
+      <p className="mt-2 text-xl font-bold text-app-text">
+        {value}
+      </p>
 
     </div>
   );
 }
 
 
-function DetailCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-
+// =============================================================
+// Detail Row
+// =============================================================
+function DetailRow({label, value}: DetailItemProps) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <div className="flex items-center justify-between gap-6 px-5 py-4">
 
-      <p className="text-sm text-gray-500">
+      <span className="app-body">
         {label}
-      </p>
+      </span>
 
-      <p className="mt-2 text-lg font-semibold text-gray-900">
+      <span className="text-right text-sm font-medium text-app-text">
         {value}
-      </p>
+      </span>
 
     </div>
   );

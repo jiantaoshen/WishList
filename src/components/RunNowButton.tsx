@@ -1,19 +1,10 @@
-import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  fetchScraperStatus,
-  runScraper,
-} from "../services/scraperApi";
-
+import {useEffect, useState} from "react";
+import {fetchScraperStatus, runScraper} from "../services/scraperApi";
 
 interface RunNowButtonProps {
   onCompleted?: () =>
     void | Promise<void>;
 }
-
 
 export function RunNowButton({
   onCompleted,
@@ -73,7 +64,6 @@ export function RunNowButton({
     if (!running) {
       return;
     }
-
 
     const interval =
       window.setInterval(
@@ -137,10 +127,7 @@ export function RunNowButton({
 
 
     return () => {
-
-      window.clearInterval(
-        interval
-      );
+      window.clearInterval(interval);
     };
 
   }, [
@@ -160,7 +147,6 @@ export function RunNowButton({
     );
 
     try {
-
       await runScraper();
 
       setRunning(
@@ -169,19 +155,11 @@ export function RunNowButton({
 
     } catch (error) {
 
-      if (
-        error instanceof Error
-      ) {
-
-        setError(
-          error.message
-        );
-
-      } else {
-
-        setError(
-          "Failed to start price checker."
-        );
+      if (error instanceof Error) {
+        setError(error.message);
+      } 
+      else {
+        setError("Failed to start price checker.");
       }
     }
   }
@@ -189,39 +167,18 @@ export function RunNowButton({
 
   return (
     <div>
-
-      <button
-        type="button"
+      <button type="button"
         disabled={running}
         onClick={handleRun}
-        className="
-          rounded-xl
-          bg-gray-900
-          px-4
-          py-2.5
-          text-sm
-          font-medium
-          text-white
-          transition
-          hover:bg-gray-700
-          disabled:cursor-not-allowed
-          disabled:bg-gray-300
-        "
+        className="app-btn app-btn-primary px-3 py-1.5"
       >
-
-        {running
-          ? "Checking Prices..."
-          : "Run Now"}
-
+        {running ? "Checking...": "Run Now"}
       </button>
 
-
       {error && (
-
-        <p className="mt-2 text-xs text-red-500">
+        <p className="app-error">
           {error}
         </p>
-
       )}
 
     </div>

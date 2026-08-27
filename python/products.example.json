@@ -1,9 +1,0 @@
-[
-  {
-    "id": "example-product",
-    "name": "Example Product",
-    "url": "https://example.com/product",
-    "target_price": 100,
-    "currency": "SEK"
-  }
-]

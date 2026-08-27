@@ -1,19 +1,11 @@
-import {
-  useEffect,
-  useState,
-} from "react";
-
+import {useEffect,useState} from "react";
 import {
   createProductConfig,
   deleteProductConfig,
   fetchProductConfigs,
-  updateProductConfig,
+  updateProductConfig
 } from "../services/productConfigApi";
-
-import type {
-  ProductConfig,
-} from "../services/productConfigApi";
-
+import type {ProductConfig} from "../services/productConfigApi";
 
 const EMPTY_PRODUCT: ProductConfig = {
   id: "",
@@ -23,52 +15,21 @@ const EMPTY_PRODUCT: ProductConfig = {
   currency: "SEK",
 };
 
-
 export function ProductManagement() {
 
-  const [
-    products,
-    setProducts,
-  ] = useState<ProductConfig[]>([]);
+  const [products, setProducts] = useState<ProductConfig[]>([]);
 
-  const [
-    form,
-    setForm,
-  ] = useState<ProductConfig>(
-    EMPTY_PRODUCT
-  );
+  const [form, setForm] = useState<ProductConfig>(EMPTY_PRODUCT);
 
-  const [
-    editingId,
-    setEditingId,
-  ] = useState<string | null>(
-    null
-  );
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  );
+  const [error, setError] = useState<string | null>(null);
 
-  const [
-    success,
-    setSuccess,
-  ] = useState<string | null>(
-    null
-  );
-
+  const [success, setSuccess] = useState<string | null>(null);
 
   // =========================================================
   // Load products
@@ -78,32 +39,23 @@ export function ProductManagement() {
 
     try {
 
-      const data =
-        await fetchProductConfigs();
+      const data = await fetchProductConfigs();
 
-      setProducts(
-        data
-      );
-
+      setProducts(data);
     } catch (error) {
-
       if (error instanceof Error) {
         setError(
           error.message
         );
       }
-
     } finally {
-
       setLoading(false);
     }
   }
 
 
   useEffect(() => {
-
     loadProducts();
-
   }, []);
 
 
@@ -112,28 +64,16 @@ export function ProductManagement() {
   // =========================================================
 
   function resetForm() {
-
-    setForm(
-      EMPTY_PRODUCT
-    );
-
-    setEditingId(
-      null
-    );
+    setForm(EMPTY_PRODUCT);
+    setEditingId(null);
   }
 
 
-  function startEdit(
-    product: ProductConfig
-  ) {
+  function startEdit(product: ProductConfig) {
 
-    setForm(
-      product
-    );
+    setForm(product);
 
-    setEditingId(
-      product.id
-    );
+    setEditingId(product.id);
 
     setError(null);
     setSuccess(null);
@@ -144,10 +84,7 @@ export function ProductManagement() {
   // Save
   // =========================================================
 
-  async function handleSubmit(
-    event:
-      React.FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
 
     event.preventDefault();
 
@@ -156,50 +93,25 @@ export function ProductManagement() {
     setSuccess(null);
 
     try {
-
       if (editingId) {
-
-        await updateProductConfig(
-          editingId,
-          form
-        );
-
-        setSuccess(
-          "Product updated."
-        );
-
+        await updateProductConfig(editingId,form);
+        setSuccess("Product updated.");
       } else {
-
-        await createProductConfig(
-          form
-        );
-
-        setSuccess(
-          "Product added."
-        );
+        await createProductConfig(form);
+        setSuccess("Product added.");
       }
 
       resetForm();
-
       await loadProducts();
-
-    } catch (error) {
-
+    } 
+    catch (error) {
       if (error instanceof Error) {
-
-        setError(
-          error.message
-        );
-
+        setError(error.message);
       } else {
-
-        setError(
-          "Failed to save product."
-        );
+        setError("Failed to save product.");
       }
-
-    } finally {
-
+    } 
+    finally {
       setSaving(false);
     }
   }
@@ -209,37 +121,24 @@ export function ProductManagement() {
   // Delete
   // =========================================================
 
-  async function handleDelete(
-    product: ProductConfig
-  ) {
+  async function handleDelete(product: ProductConfig) {
 
-    const confirmed =
-      window.confirm(
-        `Delete "${product.name}"?`
-      );
+    const confirmed = window.confirm(`Delete "${product.name}"?`);
 
-    if (!confirmed) {
-      return;
+    if (!confirmed) { 
+      return; 
     }
 
     setError(null);
     setSuccess(null);
 
     try {
+      await deleteProductConfig(product.id);
 
-      await deleteProductConfig(
-        product.id
-      );
+      setSuccess("Product deleted.");
 
-      setSuccess(
-        "Product deleted."
-      );
-
-      if (
-        editingId ===
-        product.id
-      ) {
-        resetForm();
+      if (editingId === product.id) { 
+        resetForm(); 
       }
 
       await loadProducts();
@@ -247,9 +146,7 @@ export function ProductManagement() {
     } catch (error) {
 
       if (error instanceof Error) {
-        setError(
-          error.message
-        );
+        setError(error.message);
       }
     }
   }
@@ -260,37 +157,18 @@ export function ProductManagement() {
   // =========================================================
 
   return (
-    <section
-      className="
-        rounded-2xl
-        border
-        bg-white
-        p-6
-      "
-    >
+    <section className="app-card p-6">
+
+      {/* Header */}
 
       <div>
-
-        <h2
-          className="
-            text-lg
-            font-semibold
-            text-gray-900
-          "
-        >
+        <h2 className="app-page-title">
           Products
         </h2>
 
-        <p
-          className="
-            mt-1
-            text-sm
-            text-gray-500
-          "
-        >
+        <p className="app-body mt-1">
           Manage the products monitored by Price Watch.
         </p>
-
       </div>
 
 
@@ -300,25 +178,15 @@ export function ProductManagement() {
 
       <form
         onSubmit={handleSubmit}
-        className="
-          mt-6
-          grid
-          gap-4
-          md:grid-cols-2
-        "
+        className="mt-6 grid gap-4 md:grid-cols-2"
       >
 
         {/* ID */}
 
         <div>
-
           <label
             htmlFor="product-id"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Product ID
           </label>
@@ -327,44 +195,21 @@ export function ProductManagement() {
             id="product-id"
             type="text"
             required
-            disabled={
-              editingId !== null
-            }
+            disabled={editingId !== null}
             value={form.id}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                id:
-                  event.target.value,
-              })
-            }
+            onChange={(event) => setForm({ ...form, id: event.target.value })}
             placeholder="aco-cleanser"
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-              disabled:bg-gray-100
-            "
+            className="app-input mt-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
-
         </div>
 
 
         {/* Name */}
 
         <div>
-
           <label
             htmlFor="product-name"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Name
           </label>
@@ -374,39 +219,17 @@ export function ProductManagement() {
             type="text"
             required
             value={form.name}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                name:
-                  event.target.value,
-              })
-            }
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
             placeholder="Product name"
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-            "
+            className="app-input mt-2"
           />
-
         </div>
 
-
         {/* URL */}
-
         <div className="md:col-span-2">
-
           <label
             htmlFor="product-url"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Product URL
           </label>
@@ -416,39 +239,17 @@ export function ProductManagement() {
             type="url"
             required
             value={form.url}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                url:
-                  event.target.value,
-              })
-            }
+            onChange={(event) => setForm({ ...form, url: event.target.value })}
             placeholder="https://example.com/product"
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-            "
+            className="app-input mt-2"
           />
-
         </div>
 
-
         {/* Target */}
-
         <div>
-
           <label
             htmlFor="target-price"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Target Price
           </label>
@@ -459,43 +260,18 @@ export function ProductManagement() {
             min="0.01"
             step="0.01"
             required
-            value={
-              form.target_price
-            }
-            onChange={(event) =>
-              setForm({
-                ...form,
-                target_price:
-                  Number(
-                    event.target.value
-                  ),
-              })
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-            "
+            value={form.target_price}
+            onChange={(event) => setForm({ ...form, target_price: Number(event.target.value) })}
+            className="app-input mt-2"
           />
-
         </div>
 
 
         {/* Currency */}
-
         <div>
-
           <label
             htmlFor="currency"
-            className="
-              text-sm
-              font-medium
-              text-gray-700
-            "
+            className="app-body font-medium"
           >
             Currency
           </label>
@@ -503,25 +279,9 @@ export function ProductManagement() {
           <select
             id="currency"
             value={form.currency}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                currency:
-                  event.target.value,
-              })
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              bg-white
-              px-4
-              py-3
-              text-sm
-            "
+            onChange={(event) => setForm({ ...form, currency: event.target.value })}
+            className="app-select mt-2 w-full"
           >
-
             <option value="SEK">
               SEK
             </option>
@@ -537,67 +297,33 @@ export function ProductManagement() {
             <option value="GBP">
               GBP
             </option>
-
           </select>
-
         </div>
 
 
         {/* Actions */}
-
-        <div
-          className="
-            flex
-            flex-wrap
-            gap-3
-            md:col-span-2
-          "
-        >
-
+        <div className="flex flex-wrap gap-3 md:col-span-2">
           <button
             type="submit"
             disabled={saving}
-            className="
-              rounded-xl
-              bg-gray-900
-              px-5
-              py-2.5
-              text-sm
-              font-medium
-              text-white
-              disabled:bg-gray-300
-            "
+            className="app-btn app-btn-primary px-5 py-2.5 text-sm"
           >
-
             {saving
               ? "Saving..."
               : editingId
                 ? "Update Product"
                 : "Add Product"}
-
           </button>
 
-
           {editingId && (
-
             <button
               type="button"
               onClick={resetForm}
-              className="
-                rounded-xl
-                border
-                px-5
-                py-2.5
-                text-sm
-                font-medium
-                text-gray-600
-              "
+              className="app-btn app-btn-secondary px-5 py-2.5 text-sm"
             >
               Cancel
             </button>
-
           )}
-
         </div>
 
       </form>
@@ -606,252 +332,105 @@ export function ProductManagement() {
       {/* Messages */}
 
       {error && (
-
-        <div
-          className="
-            mt-5
-            rounded-xl
-            bg-red-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-sm
-              text-red-600
-            "
-          >
+        <div className="status-danger mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
             {error}
           </p>
-
         </div>
-
       )}
 
-
       {success && (
-
-        <div
-          className="
-            mt-5
-            rounded-xl
-            bg-green-50
-            px-4
-            py-3
-          "
-        >
-
-          <p
-            className="
-              text-sm
-              text-green-700
-            "
-          >
+        <div className="status-success mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
             {success}
           </p>
-
         </div>
-
       )}
 
 
       {/* =====================================================
-          Product configuration list
+          Product Configuration List
       ===================================================== */}
 
       <div className="mt-8">
 
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            border-b
-            pb-3
-          "
-        >
-
-          <h3
-            className="
-              font-medium
-              text-gray-900
-            "
-          >
+        <div className="flex items-center justify-between border-b border-app-border pb-3">
+          <h3 className="app-section-title">
             Tracked Products
           </h3>
 
-          <span
-            className="
-              text-xs
-              text-gray-400
-            "
-          >
+          <span className="app-muted">
             {products.length} products
           </span>
-
         </div>
 
 
         {loading ? (
 
-          <p
-            className="
-              py-6
-              text-sm
-              text-gray-500
-            "
-          >
+          <p className="app-body py-6">
             Loading products...
           </p>
 
         ) : products.length === 0 ? (
 
-          <div
-            className="
-              py-10
-              text-center
-            "
-          >
-
-            <p
-              className="
-                font-medium
-                text-gray-700
-              "
-            >
+          <div className="py-10 text-center">
+            <p className="font-medium text-app-text-secondary">
               No products configured
             </p>
 
-            <p
-              className="
-                mt-1
-                text-sm
-                text-gray-400
-              "
-            >
+            <p className="app-muted mt-1">
               Add your first product above.
             </p>
-
           </div>
 
         ) : (
 
-          <div className="divide-y">
-
+          <div className="divide-y divide-app-border">
             {products.map(
               (product) => (
-
                 <div
                   key={product.id}
-                  className="
-                    flex
-                    flex-col
-                    gap-4
-                    py-4
-                    sm:flex-row
-                    sm:items-center
-                    sm:justify-between
-                  "
+                  className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                 >
-
                   <div className="min-w-0">
-
-                    <p
-                      className="
-                        font-medium
-                        text-gray-900
-                      "
-                    >
+                    <p className="font-medium text-app-text">
                       {product.name}
                     </p>
 
-                    <p
-                      className="
-                        mt-1
-                        text-sm
-                        text-gray-500
-                      "
-                    >
+                    <p className="app-body mt-1">
                       Target:{" "}
                       {product.target_price.toFixed(
-                        2
+                        2,
                       )}{" "}
                       {product.currency}
                     </p>
 
-                    <p
-                      className="
-                        mt-1
-                        truncate
-                        text-xs
-                        text-gray-400
-                      "
-                    >
+                    <p className="app-muted mt-1 truncate">
                       {product.url}
                     </p>
-
                   </div>
 
 
-                  <div
-                    className="
-                      flex
-                      shrink-0
-                      gap-2
-                    "
-                  >
-
+                  <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
-                      onClick={() =>
-                        startEdit(
-                          product
-                        )
-                      }
-                      className="
-                        rounded-lg
-                        border
-                        px-3
-                        py-2
-                        text-sm
-                        text-gray-600
-                        hover:bg-gray-50
-                      "
+                      onClick={() => startEdit(product)}
+                      className="app-btn app-btn-secondary px-3 py-2 text-sm"
                     >
                       Edit
                     </button>
 
-
                     <button
                       type="button"
-                      onClick={() =>
-                        handleDelete(
-                          product
-                        )
-                      }
-                      className="
-                        rounded-lg
-                        border
-                        border-red-200
-                        px-3
-                        py-2
-                        text-sm
-                        text-red-600
-                        hover:bg-red-50
-                      "
+                      onClick={() => handleDelete(product)}
+                      className="app-btn app-btn-danger px-3 py-2 text-sm"
                     >
                       Delete
                     </button>
-
                   </div>
-
                 </div>
-
-              )
+              ),
             )}
-
           </div>
 
         )}

@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   fetchEmailSettings,
@@ -10,76 +7,36 @@ import {
 } from "../services/emailSettingsApi";
 
 
+interface InputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+
+// =============================================================
+// Email Settings
+// =============================================================
+
 export function EmailSettings() {
 
-  const [
-    smtpHost,
-    setSmtpHost,
-  ] = useState(
-    "smtp.gmail.com"
-  );
+  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [emailFrom, setEmailFrom] = useState("");
+  const [emailTo, setEmailTo] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [
-    smtpPort,
-    setSmtpPort,
-  ] = useState(
-    587
-  );
 
-  const [
-    smtpUser,
-    setSmtpUser,
-  ] = useState("");
-
-  const [
-    smtpPassword,
-    setSmtpPassword,
-  ] = useState("");
-
-  const [
-    emailFrom,
-    setEmailFrom,
-  ] = useState("");
-
-  const [
-    emailTo,
-    setEmailTo,
-  ] = useState("");
-
-  const [
-    hasPassword,
-    setHasPassword,
-  ] = useState(false);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-  const [
-    testing,
-    setTesting,
-  ] = useState(false);
-
-  const [
-    message,
-    setMessage,
-  ] = useState<string | null>(
-    null
-  );
-
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  );
-
+  // =========================================================
+  // Load Settings
+  // =========================================================
 
   useEffect(() => {
 
@@ -87,44 +44,23 @@ export function EmailSettings() {
 
       try {
 
-        const settings =
-          await fetchEmailSettings();
+        const settings = await fetchEmailSettings();
 
-        setSmtpHost(
-          settings.smtpHost
-        );
-
-        setSmtpPort(
-          settings.smtpPort
-        );
-
-        setSmtpUser(
-          settings.smtpUser
-        );
-
-        setEmailFrom(
-          settings.emailFrom
-        );
-
-        setEmailTo(
-          settings.emailTo
-        );
-
-        setHasPassword(
-          settings.hasPassword
-        );
+        setSmtpHost(settings.smtpHost);
+        setSmtpPort(settings.smtpPort);
+        setSmtpUser(settings.smtpUser);
+        setEmailFrom(settings.emailFrom);
+        setEmailTo(settings.emailTo);
+        setHasPassword(settings.hasPassword);
 
       } catch (error) {
 
-        if (error instanceof Error) {
-          setError(
-            error.message
-          );
-        }
+        if (error instanceof Error) { setError(error.message); }
 
       } finally {
 
         setLoading(false);
+
       }
     }
 
@@ -134,6 +70,10 @@ export function EmailSettings() {
   }, []);
 
 
+  // =========================================================
+  // Save
+  // =========================================================
+
   async function handleSave() {
 
     setSaving(true);
@@ -142,47 +82,37 @@ export function EmailSettings() {
 
     try {
 
-      const settings =
-        await saveEmailSettings({
-          smtpHost,
-          smtpPort,
-          smtpUser,
+      const settings = await saveEmailSettings({
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPassword: smtpPassword.trim() ? smtpPassword : null,
+        emailFrom,
+        emailTo,
+      });
 
-          smtpPassword:
-            smtpPassword.trim()
-              ? smtpPassword
-              : null,
-
-          emailFrom,
-          emailTo,
-        });
-
-
-      setHasPassword(
-        settings.hasPassword
-      );
+      setHasPassword(settings.hasPassword);
 
       // Never retain password in React.
       setSmtpPassword("");
 
-      setMessage(
-        "Email settings saved."
-      );
+      setMessage("Email settings saved.");
 
     } catch (error) {
 
-      if (error instanceof Error) {
-        setError(
-          error.message
-        );
-      }
+      if (error instanceof Error) { setError(error.message); }
 
     } finally {
 
       setSaving(false);
+
     }
   }
 
+
+  // =========================================================
+  // Test
+  // =========================================================
 
   async function handleTest() {
 
@@ -194,30 +124,28 @@ export function EmailSettings() {
 
       await sendTestEmail();
 
-      setMessage(
-        "Test email sent successfully."
-      );
+      setMessage("Test email sent successfully.");
 
     } catch (error) {
 
-      if (error instanceof Error) {
-        setError(
-          error.message
-        );
-      }
+      if (error instanceof Error) { setError(error.message); }
 
     } finally {
 
       setTesting(false);
+
     }
   }
 
 
-  if (loading) {
+  // =========================================================
+  // Loading
+  // =========================================================
 
+  if (loading) {
     return (
-      <div className="rounded-2xl border bg-white p-6">
-        <p className="text-sm text-gray-500">
+      <div className="app-card p-6">
+        <p className="app-body">
           Loading email settings...
         </p>
       </div>
@@ -225,33 +153,29 @@ export function EmailSettings() {
   }
 
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
-    <section
-      className="
-        rounded-2xl
-        border
-        bg-white
-        p-6
-      "
-    >
+    <section className="app-card p-6">
 
-      <h2 className="text-lg font-semibold text-gray-900">
-        Email Notifications
-      </h2>
+      {/* Header */}
 
-      <p className="mt-1 text-sm text-gray-500">
-        Configure SMTP settings for Price Watch alerts.
-      </p>
+      <div>
+        <h2 className="app-page-title">
+          Email Notifications
+        </h2>
+
+        <p className="app-body mt-1">
+          Configure SMTP settings for Price Watch alerts.
+        </p>
+      </div>
 
 
-      <div
-        className="
-          mt-6
-          grid
-          gap-4
-          md:grid-cols-2
-        "
-      >
+      {/* Form */}
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
 
         <Input
           label="SMTP Host"
@@ -259,31 +183,18 @@ export function EmailSettings() {
           onChange={setSmtpHost}
         />
 
+
         <div>
 
-          <label className="text-sm font-medium text-gray-700">
+          <label className="app-body font-medium">
             SMTP Port
           </label>
 
           <input
             type="number"
             value={smtpPort}
-            onChange={(event) =>
-              setSmtpPort(
-                Number(
-                  event.target.value
-                )
-              )
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-            "
+            onChange={(event) => setSmtpPort(Number(event.target.value))}
+            className="app-input mt-2"
           />
 
         </div>
@@ -298,32 +209,16 @@ export function EmailSettings() {
 
         <div>
 
-          <label className="text-sm font-medium text-gray-700">
+          <label className="app-body font-medium">
             SMTP Password
           </label>
 
           <input
             type="password"
             value={smtpPassword}
-            onChange={(event) =>
-              setSmtpPassword(
-                event.target.value
-              )
-            }
-            placeholder={
-              hasPassword
-                ? "Saved — leave blank to keep"
-                : "Enter App Password"
-            }
-            className="
-              mt-2
-              w-full
-              rounded-xl
-              border
-              px-4
-              py-3
-              text-sm
-            "
+            onChange={(event) => setSmtpPassword(event.target.value)}
+            placeholder={hasPassword ? "Saved — leave blank to keep" : "Enter App Password"}
+            className="app-input mt-2"
           />
 
         </div>
@@ -344,19 +239,26 @@ export function EmailSettings() {
       </div>
 
 
-      {error && (
-        <p className="mt-5 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+      {/* Messages */}
 
+      {error && (
+        <div className="status-danger mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
+            {error}
+          </p>
+        </div>
+      )}
 
       {message && (
-        <p className="mt-5 text-sm text-green-700">
-          {message}
-        </p>
+        <div className="status-success mt-5 rounded-xl border px-4 py-3">
+          <p className="text-sm">
+            {message}
+          </p>
+        </div>
       )}
 
+
+      {/* Actions */}
 
       <div className="mt-6 flex flex-wrap gap-3">
 
@@ -364,44 +266,19 @@ export function EmailSettings() {
           type="button"
           disabled={saving}
           onClick={handleSave}
-          className="
-            rounded-xl
-            bg-gray-900
-            px-5
-            py-2.5
-            text-sm
-            font-medium
-            text-white
-            disabled:bg-gray-300
-          "
+          className="app-btn app-btn-primary px-5 py-2.5 text-sm"
         >
-          {saving
-            ? "Saving..."
-            : "Save Settings"}
+          {saving ? "Saving..." : "Save Settings"}
         </button>
 
 
         <button
           type="button"
-          disabled={
-            testing ||
-            !hasPassword
-          }
+          disabled={testing || !hasPassword}
           onClick={handleTest}
-          className="
-            rounded-xl
-            border
-            px-5
-            py-2.5
-            text-sm
-            font-medium
-            text-gray-700
-            disabled:opacity-50
-          "
+          className="app-btn app-btn-secondary px-5 py-2.5 text-sm"
         >
-          {testing
-            ? "Sending..."
-            : "Send Test Email"}
+          {testing ? "Sending..." : "Send Test Email"}
         </button>
 
       </div>
@@ -411,42 +288,28 @@ export function EmailSettings() {
 }
 
 
+// =============================================================
+// Input
+// =============================================================
+
 function Input({
   label,
   value,
   onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (
-    value: string
-  ) => void;
-}) {
+}: InputProps) {
 
   return (
     <div>
 
-      <label className="text-sm font-medium text-gray-700">
+      <label className="app-body font-medium">
         {label}
       </label>
 
       <input
         type="text"
         value={value}
-        onChange={(event) =>
-          onChange(
-            event.target.value
-          )
-        }
-        className="
-          mt-2
-          w-full
-          rounded-xl
-          border
-          px-4
-          py-3
-          text-sm
-        "
+        onChange={(event) => onChange(event.target.value)}
+        className="app-input mt-2"
       />
 
     </div>

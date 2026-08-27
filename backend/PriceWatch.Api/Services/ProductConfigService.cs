@@ -1,86 +1,50 @@
 using System.Text;
 using System.Text.Json;
-
 using PriceWatch.Api.Models;
 
 namespace PriceWatch.Api.Services;
-
 
 public sealed class ProductConfigService
 {
     private readonly string _productsFile;
 
-    private readonly SemaphoreSlim _writeLock =
-        new(
-            1,
-            1
-        );
-
+    private readonly SemaphoreSlim _writeLock =new(1,1);
 
     private readonly JsonSerializerOptions _jsonOptions =
         new()
         {
-            WriteIndented =
-                true,
-
-            PropertyNameCaseInsensitive =
-                true
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
         };
 
-
-    public ProductConfigService(
-        AppPaths paths
-    )
+    public ProductConfigService(AppPaths paths)
     {
-        _productsFile =
-            paths.ProductsFile;
+        _productsFile = paths.ProductsFile;
     }
-
 
     // ========================================================
     // Get all products
     // ========================================================
 
-    public async Task<
-        List<ProductConfig>
-    > GetAllAsync()
+    public async Task<List<ProductConfig>> GetAllAsync()
     {
-        if (!File.Exists(
-            _productsFile
-        ))
-        {
+        if (!File.Exists(_productsFile)){
             return [];
         }
 
 
         try
         {
-            var json =
-                await File.ReadAllTextAsync(
-                    _productsFile
-                );
+            var json = await File.ReadAllTextAsync(_productsFile);
 
-
-            if (string.IsNullOrWhiteSpace(
-                json
-            ))
-            {
+            if (string.IsNullOrWhiteSpace(json)){
                 return [];
             }
 
-
             return
-                JsonSerializer.Deserialize<
-                    List<ProductConfig>
-                >(
-                    json,
-                    _jsonOptions
-                )
-                ?? [];
+                JsonSerializer.Deserialize<List<ProductConfig>>(json,_jsonOptions) ?? [];
         }
-        catch (
-            JsonException exception
-        )
+        catch (JsonException exception)
         {
             throw new InvalidOperationException(
                 "products.json contains invalid JSON.",
@@ -94,18 +58,14 @@ public sealed class ProductConfigService
     // Create
     // ========================================================
 
-    public async Task<ProductConfig>
-        CreateAsync(
-            ProductConfig product
-        )
+    public async Task<ProductConfig> CreateAsync(ProductConfig product)
     {
         Validate(
             product
         );
 
 
-        await _writeLock
-            .WaitAsync();
+        await _writeLock.WaitAsync();
 
 
         try
@@ -155,11 +115,7 @@ public sealed class ProductConfigService
     // Update
     // ========================================================
 
-    public async Task<ProductConfig>
-        UpdateAsync(
-            string id,
-            ProductConfig product
-        )
+    public async Task<ProductConfig> UpdateAsync(string id,ProductConfig product)
     {
         if (
             string.IsNullOrWhiteSpace(
@@ -173,19 +129,13 @@ public sealed class ProductConfigService
         }
 
 
-        Validate(
-            product
-        );
+        Validate(product);
 
-
-        await _writeLock
-            .WaitAsync();
-
+        await _writeLock.WaitAsync();
 
         try
         {
-            var products =
-                await GetAllAsync();
+            var products = await GetAllAsync();
 
 
             var index =
@@ -210,21 +160,11 @@ public sealed class ProductConfigService
 
             // Product ID is stable.
             // The route ID wins over the request body.
-            var updated =
-                product with
-                {
-                    Id = id
-                };
+            var updated = product with {Id = id};
 
+            products[index] =updated;
 
-            products[index] =
-                updated;
-
-
-            await SaveAsync(
-                products
-            );
-
+            await SaveAsync(products);
 
             return updated;
         }
@@ -239,15 +179,9 @@ public sealed class ProductConfigService
     // Delete
     // ========================================================
 
-    public async Task DeleteAsync(
-        string id
-    )
+    public async Task DeleteAsync( string id)
     {
-        if (
-            string.IsNullOrWhiteSpace(
-                id
-            )
-        )
+        if (string.IsNullOrWhiteSpace(id))
         {
             throw new ArgumentException(
                 "Product ID is required."
@@ -255,15 +189,11 @@ public sealed class ProductConfigService
         }
 
 
-        await _writeLock
-            .WaitAsync();
-
+        await _writeLock.WaitAsync();
 
         try
         {
-            var products =
-                await GetAllAsync();
-
+            var products = await GetAllAsync();
 
             var removed =
                 products.RemoveAll(
@@ -300,9 +230,7 @@ public sealed class ProductConfigService
     // Save atomically
     // ========================================================
 
-    private async Task SaveAsync(
-        List<ProductConfig> products
-    )
+    private async Task SaveAsync(List<ProductConfig> products)
     {
         var directory =
             Path.GetDirectoryName(
@@ -344,7 +272,7 @@ public sealed class ProductConfigService
             await File.WriteAllTextAsync(
                 tempFile,
                 json + Environment.NewLine,
-                Encoding.UTF8
+                new UTF8Encoding(false)
             );
 
 
@@ -376,9 +304,7 @@ public sealed class ProductConfigService
     // Validation
     // ========================================================
 
-    private static void Validate(
-        ProductConfig product
-    )
+    private static void Validate(ProductConfig product)
     {
         if (
             string.IsNullOrWhiteSpace(
@@ -404,20 +330,8 @@ public sealed class ProductConfigService
         }
 
 
-        if (
-            !Uri.TryCreate(
-                product.Url,
-                UriKind.Absolute,
-                out var url
-            )
-            ||
-            (
-                url.Scheme !=
-                    Uri.UriSchemeHttp
-                &&
-                url.Scheme !=
-                    Uri.UriSchemeHttps
-            )
+        if (!Uri.TryCreate(product.Url, UriKind.Absolute,out var url) ||
+            (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
         )
         {
             throw new ArgumentException(
@@ -426,15 +340,8 @@ public sealed class ProductConfigService
         }
 
 
-        if (
-            double.IsNaN(
-                product.TargetPrice
-            )
-            ||
-            double.IsInfinity(
-                product.TargetPrice
-            )
-            ||
+        if (double.IsNaN(product.TargetPrice) ||
+            double.IsInfinity(product.TargetPrice) ||
             product.TargetPrice <= 0
         )
         {
@@ -443,16 +350,9 @@ public sealed class ProductConfigService
             );
         }
 
-
-        if (
-            string.IsNullOrWhiteSpace(
-                product.Currency
-            )
-        )
+        if (string.IsNullOrWhiteSpace(product.Currency))
         {
-            throw new ArgumentException(
-                "Currency is required."
-            );
+            throw new ArgumentException("Currency is required.");
         }
     }
 }
