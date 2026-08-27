@@ -1,38 +1,42 @@
-import {useEffect,useState} from "react";
+import { useEffect, useState } from "react";
+
 import {
   createProductConfig,
   deleteProductConfig,
   fetchProductConfigs,
-  updateProductConfig
+  updateProductConfig,
 } from "../services/productConfigApi";
-import type {ProductConfig} from "../services/productConfigApi";
 
-const EMPTY_PRODUCT: ProductConfig = {
-  id: "",
+import type {
+  ProductConfig,
+  ProductConfigInput,
+} from "../services/productConfigApi";
+
+
+const EMPTY_PRODUCT: ProductConfigInput = {
   name: "",
   url: "",
   target_price: 100,
   currency: "SEK",
 };
 
+// =============================================================
+// Product Management
+// =============================================================
+
 export function ProductManagement() {
 
   const [products, setProducts] = useState<ProductConfig[]>([]);
-
-  const [form, setForm] = useState<ProductConfig>(EMPTY_PRODUCT);
-
+  const [form, setForm] = useState<ProductConfigInput>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(true);
-
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
-
   const [success, setSuccess] = useState<string | null>(null);
 
+
   // =========================================================
-  // Load products
+  // Load Products
   // =========================================================
 
   async function loadProducts() {
@@ -40,16 +44,16 @@ export function ProductManagement() {
     try {
 
       const data = await fetchProductConfigs();
-
       setProducts(data);
+
     } catch (error) {
-      if (error instanceof Error) {
-        setError(
-          error.message
-        );
-      }
+
+      if (error instanceof Error) { setError(error.message); }
+
     } finally {
+
       setLoading(false);
+
     }
   }
 
@@ -60,7 +64,7 @@ export function ProductManagement() {
 
 
   // =========================================================
-  // Form helpers
+  // Form Helpers
   // =========================================================
 
   function resetForm() {
@@ -71,10 +75,14 @@ export function ProductManagement() {
 
   function startEdit(product: ProductConfig) {
 
-    setForm(product);
+    setForm({
+      name: product.name,
+      url: product.url,
+      target_price: product.target_price,
+      currency: product.currency,
+    });
 
     setEditingId(product.id);
-
     setError(null);
     setSuccess(null);
   }
@@ -93,8 +101,9 @@ export function ProductManagement() {
     setSuccess(null);
 
     try {
+
       if (editingId) {
-        await updateProductConfig(editingId,form);
+        await updateProductConfig(editingId, form);
         setSuccess("Product updated.");
       } else {
         await createProductConfig(form);
@@ -103,16 +112,19 @@ export function ProductManagement() {
 
       resetForm();
       await loadProducts();
-    } 
-    catch (error) {
+
+    } catch (error) {
+
       if (error instanceof Error) {
         setError(error.message);
       } else {
         setError("Failed to save product.");
       }
-    } 
-    finally {
+
+    } finally {
+
       setSaving(false);
+
     }
   }
 
@@ -125,29 +137,24 @@ export function ProductManagement() {
 
     const confirmed = window.confirm(`Delete "${product.name}"?`);
 
-    if (!confirmed) { 
-      return; 
-    }
+    if (!confirmed) { return; }
 
     setError(null);
     setSuccess(null);
 
     try {
-      await deleteProductConfig(product.id);
 
+      await deleteProductConfig(product.id);
       setSuccess("Product deleted.");
 
-      if (editingId === product.id) { 
-        resetForm(); 
-      }
+      if (editingId === product.id) { resetForm(); }
 
       await loadProducts();
 
     } catch (error) {
 
-      if (error instanceof Error) {
-        setError(error.message);
-      }
+      if (error instanceof Error) { setError(error.message); }
+
     }
   }
 
@@ -181,29 +188,6 @@ export function ProductManagement() {
         className="mt-6 grid gap-4 md:grid-cols-2"
       >
 
-        {/* ID */}
-
-        <div>
-          <label
-            htmlFor="product-id"
-            className="app-body font-medium"
-          >
-            Product ID
-          </label>
-
-          <input
-            id="product-id"
-            type="text"
-            required
-            disabled={editingId !== null}
-            value={form.id}
-            onChange={(event) => setForm({ ...form, id: event.target.value })}
-            placeholder="aco-cleanser"
-            className="app-input mt-2 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-        </div>
-
-
         {/* Name */}
 
         <div>
@@ -225,7 +209,9 @@ export function ProductManagement() {
           />
         </div>
 
+
         {/* URL */}
+
         <div className="md:col-span-2">
           <label
             htmlFor="product-url"
@@ -244,6 +230,7 @@ export function ProductManagement() {
             className="app-input mt-2"
           />
         </div>
+
 
         {/* Target */}
         <div>
@@ -265,7 +252,6 @@ export function ProductManagement() {
             className="app-input mt-2"
           />
         </div>
-
 
         {/* Currency */}
         <div>
@@ -302,17 +288,14 @@ export function ProductManagement() {
 
 
         {/* Actions */}
+
         <div className="flex flex-wrap gap-3 md:col-span-2">
           <button
             type="submit"
             disabled={saving}
             className="app-btn app-btn-primary px-5 py-2.5 text-sm"
           >
-            {saving
-              ? "Saving..."
-              : editingId
-                ? "Update Product"
-                : "Add Product"}
+            {saving ? "Saving..." : editingId ? "Update Product" : "Add Product"}
           </button>
 
           {editingId && (
@@ -386,51 +369,53 @@ export function ProductManagement() {
         ) : (
 
           <div className="divide-y divide-app-border">
-            {products.map(
-              (product) => (
-                <div
-                  key={product.id}
-                  className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-app-text">
-                      {product.name}
-                    </p>
 
-                    <p className="app-body mt-1">
-                      Target:{" "}
-                      {product.target_price.toFixed(
-                        2,
-                      )}{" "}
-                      {product.currency}
-                    </p>
+            {products.map((product) => (
 
-                    <p className="app-muted mt-1 truncate">
-                      {product.url}
-                    </p>
-                  </div>
+              <div
+                key={product.id}
+                className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
 
+                <div className="min-w-0">
+                  <p className="font-medium text-app-text">
+                    {product.name}
+                  </p>
 
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(product)}
-                      className="app-btn app-btn-secondary px-3 py-2 text-sm"
-                    >
-                      Edit
-                    </button>
+                  <p className="app-body mt-1">
+                    Target:{" "}
+                    {product.target_price.toFixed(2)}{" "}
+                    {product.currency}
+                  </p>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(product)}
-                      className="app-btn app-btn-danger px-3 py-2 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <p className="app-muted mt-1 truncate">
+                    {product.url}
+                  </p>
                 </div>
-              ),
-            )}
+
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(product)}
+                    className="app-btn app-btn-secondary px-3 py-2 text-sm"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(product)}
+                    className="app-btn app-btn-danger px-3 py-2 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+              </div>
+
+            ))}
+
           </div>
 
         )}

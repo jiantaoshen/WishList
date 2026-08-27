@@ -1,5 +1,6 @@
 using PriceWatch.Api.Models;
 using PriceWatch.Api.Services;
+using PriceWatch.Api.DTOs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -458,7 +459,7 @@ app.MapGet(
 app.MapPost(
     "/api/product-config",
     async (
-        ProductConfig product,
+        ProductConfigInput input,
         ProductConfigService service
     ) =>
     {
@@ -466,11 +467,12 @@ app.MapPost(
         {
             var created =
                 await service.CreateAsync(
-                    product
+                    input
                 );
 
 
-            return Results.Ok(
+            return Results.Created(
+                $"/api/product-config/{created.Id}",
                 created
             );
         }
@@ -486,18 +488,6 @@ app.MapPost(
                 }
             );
         }
-        catch (
-            InvalidOperationException exception
-        )
-        {
-            return Results.Conflict(
-                new
-                {
-                    error =
-                        exception.Message
-                }
-            );
-        }
     }
 );
 
@@ -506,7 +496,7 @@ app.MapPut(
     "/api/product-config/{id}",
     async (
         string id,
-        ProductConfig product,
+        ProductConfigInput input,
         ProductConfigService service
     ) =>
     {
@@ -515,7 +505,7 @@ app.MapPut(
             var updated =
                 await service.UpdateAsync(
                     id,
-                    product
+                    input
                 );
 
 
@@ -524,14 +514,14 @@ app.MapPut(
             );
         }
         catch (
-            KeyNotFoundException
+            KeyNotFoundException exception
         )
         {
             return Results.NotFound(
                 new
                 {
                     error =
-                        "Product not found"
+                        exception.Message
                 }
             );
         }

@@ -8,20 +8,24 @@ export interface ProductConfig {
   currency: string;
 }
 
+export type ProductConfigInput = Omit<ProductConfig, "id">;
 
-export async function fetchProductConfigs():
-  Promise<ProductConfig[]> {
+// =============================================================
+// Fetch
+// =============================================================
+
+export async function fetchProductConfigs(): Promise<ProductConfig[]> {
 
   const response = await fetch(
     `${API_BASE_URL}/api/product-config`,
     {
       cache: "no-store",
-    }
+    },
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to load product configuration: ${response.status}`
+      `Failed to load product configuration: ${response.status}`,
     );
   }
 
@@ -29,8 +33,12 @@ export async function fetchProductConfigs():
 }
 
 
+// =============================================================
+// Create
+// =============================================================
+
 export async function createProductConfig(
-  product: ProductConfig,
+  product: ProductConfigInput,
 ): Promise<ProductConfig> {
 
   const response = await fetch(
@@ -43,16 +51,15 @@ export async function createProductConfig(
       },
 
       body: JSON.stringify(product),
-    }
+    },
   );
 
   if (!response.ok) {
-    const text =
-      await response.text();
+    const text = await response.text();
 
     throw new Error(
       text ||
-      `Failed to create product: ${response.status}`
+      `Failed to create product: ${response.status}`,
     );
   }
 
@@ -60,15 +67,17 @@ export async function createProductConfig(
 }
 
 
+// =============================================================
+// Update
+// =============================================================
+
 export async function updateProductConfig(
   id: string,
-  product: ProductConfig,
+  product: ProductConfigInput,
 ): Promise<ProductConfig> {
 
   const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(
-      id
-    )}`,
+    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
     {
       method: "PUT",
 
@@ -77,16 +86,15 @@ export async function updateProductConfig(
       },
 
       body: JSON.stringify(product),
-    }
+    },
   );
 
   if (!response.ok) {
-    const text =
-      await response.text();
+    const text = await response.text();
 
     throw new Error(
       text ||
-      `Failed to update product: ${response.status}`
+      `Failed to update product: ${response.status}`,
     );
   }
 
@@ -94,22 +102,24 @@ export async function updateProductConfig(
 }
 
 
+// =============================================================
+// Delete
+// =============================================================
+
 export async function deleteProductConfig(
   id: string,
 ): Promise<void> {
 
   const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(
-      id
-    )}`,
+    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
-    }
+    },
   );
 
   if (!response.ok) {
     throw new Error(
-      `Failed to delete product: ${response.status}`
+      `Failed to delete product: ${response.status}`,
     );
   }
 }

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using PriceWatch.Api.DTOs;
 using PriceWatch.Api.Models;
 
 namespace PriceWatch.Api.Services;
@@ -8,7 +9,7 @@ public sealed class ProductConfigService
 {
     private readonly string _productsFile;
 
-    private readonly SemaphoreSlim _writeLock =new(1,1);
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     private readonly JsonSerializerOptions _jsonOptions =
         new()
@@ -17,10 +18,12 @@ public sealed class ProductConfigService
             PropertyNameCaseInsensitive = true
         };
 
+
     public ProductConfigService(AppPaths paths)
     {
         _productsFile = paths.ProductsFile;
     }
+
 
     // ========================================================
     // Get all products
@@ -28,7 +31,8 @@ public sealed class ProductConfigService
 
     public async Task<List<ProductConfig>> GetAllAsync()
     {
-        if (!File.Exists(_productsFile)){
+        if (!File.Exists(_productsFile))
+        {
             return [];
         }
 
@@ -37,12 +41,15 @@ public sealed class ProductConfigService
         {
             var json = await File.ReadAllTextAsync(_productsFile);
 
-            if (string.IsNullOrWhiteSpace(json)){
+            if (string.IsNullOrWhiteSpace(json))
+            {
                 return [];
             }
 
-            return
-                JsonSerializer.Deserialize<List<ProductConfig>>(json,_jsonOptions) ?? [];
+            return JsonSerializer.Deserialize<List<ProductConfig>>(
+                json,
+                _jsonOptions
+            ) ?? [];
         }
         catch (JsonException exception)
         {
@@ -58,49 +65,27 @@ public sealed class ProductConfigService
     // Create
     // ========================================================
 
-    public async Task<ProductConfig> CreateAsync(ProductConfig product)
+    public async Task<ProductConfig> CreateAsync(ProductConfigInput input)
     {
-        Validate(
-            product
-        );
-
+        Validate(input);
 
         await _writeLock.WaitAsync();
 
-
         try
         {
-            var products =
-                await GetAllAsync();
+            var products = await GetAllAsync();
 
-
-            if (
-                products.Any(
-                    existing =>
-                        string.Equals(
-                            existing.Id,
-                            product.Id,
-                            StringComparison
-                                .OrdinalIgnoreCase
-                        )
-                )
-            )
-            {
-                throw new InvalidOperationException(
-                    "A product with this ID already exists."
-                );
-            }
-
-
-            products.Add(
-                product
+            var product = new ProductConfig(
+                GenerateId(products),
+                input.Name.Trim(),
+                input.Url.Trim(),
+                input.TargetPrice,
+                input.Currency.Trim().ToUpperInvariant()
             );
 
+            products.Add(product);
 
-            await SaveAsync(
-                products
-            );
-
+            await SaveAsync(products);
 
             return product;
         }
@@ -115,21 +100,19 @@ public sealed class ProductConfigService
     // Update
     // ========================================================
 
-    public async Task<ProductConfig> UpdateAsync(string id,ProductConfig product)
+    public async Task<ProductConfig> UpdateAsync(
+        string id,
+        ProductConfigInput input
+    )
     {
-        if (
-            string.IsNullOrWhiteSpace(
-                id
-            )
-        )
+        if (string.IsNullOrWhiteSpace(id))
         {
             throw new ArgumentException(
                 "Product ID is required."
             );
         }
 
-
-        Validate(product);
+        Validate(input);
 
         await _writeLock.WaitAsync();
 
@@ -137,18 +120,14 @@ public sealed class ProductConfigService
         {
             var products = await GetAllAsync();
 
-
-            var index =
-                products.FindIndex(
-                    existing =>
-                        string.Equals(
-                            existing.Id,
-                            id,
-                            StringComparison
-                                .OrdinalIgnoreCase
-                        )
-                );
-
+            var index = products.FindIndex(
+                product =>
+                    string.Equals(
+                        product.Id,
+                        id,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+            );
 
             if (index < 0)
             {
@@ -158,11 +137,15 @@ public sealed class ProductConfigService
             }
 
 
-            // Product ID is stable.
-            // The route ID wins over the request body.
-            var updated = product with {Id = id};
+            var updated = new ProductConfig(
+                products[index].Id,
+                input.Name.Trim(),
+                input.Url.Trim(),
+                input.TargetPrice,
+                input.Currency.Trim().ToUpperInvariant()
+            );
 
-            products[index] =updated;
+            products[index] = updated;
 
             await SaveAsync(products);
 
@@ -179,7 +162,7 @@ public sealed class ProductConfigService
     // Delete
     // ========================================================
 
-    public async Task DeleteAsync( string id)
+    public async Task DeleteAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -195,17 +178,14 @@ public sealed class ProductConfigService
         {
             var products = await GetAllAsync();
 
-            var removed =
-                products.RemoveAll(
-                    product =>
-                        string.Equals(
-                            product.Id,
-                            id,
-                            StringComparison
-                                .OrdinalIgnoreCase
-                        )
-                );
-
+            var removed = products.RemoveAll(
+                product =>
+                    string.Equals(
+                        product.Id,
+                        id,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+            );
 
             if (removed == 0)
             {
@@ -214,10 +194,7 @@ public sealed class ProductConfigService
                 );
             }
 
-
-            await SaveAsync(
-                products
-            );
+            await SaveAsync(products);
         }
         finally
         {
@@ -232,40 +209,23 @@ public sealed class ProductConfigService
 
     private async Task SaveAsync(List<ProductConfig> products)
     {
-        var directory =
-            Path.GetDirectoryName(
-                _productsFile
-            );
+        var directory = Path.GetDirectoryName(_productsFile);
 
-
-        if (
-            string.IsNullOrWhiteSpace(
-                directory
-            )
-        )
+        if (string.IsNullOrWhiteSpace(directory))
         {
             throw new InvalidOperationException(
                 "Unable to determine the products directory."
             );
         }
 
+        Directory.CreateDirectory(directory);
 
-        Directory.CreateDirectory(
-            directory
+        var json = JsonSerializer.Serialize(
+            products,
+            _jsonOptions
         );
 
-
-        var json =
-            JsonSerializer.Serialize(
-                products,
-                _jsonOptions
-            );
-
-
-        var tempFile =
-            _productsFile
-            + ".tmp";
-
+        var tempFile = _productsFile + ".tmp";
 
         try
         {
@@ -275,26 +235,20 @@ public sealed class ProductConfigService
                 new UTF8Encoding(false)
             );
 
-
             // Temp file and target are in the same directory,
             // so the final replacement avoids exposing a
             // partially written products.json.
             File.Move(
                 tempFile,
                 _productsFile,
-                overwrite:
-                    true
+                overwrite: true
             );
         }
         finally
         {
-            if (File.Exists(
-                tempFile
-            ))
+            if (File.Exists(tempFile))
             {
-                File.Delete(
-                    tempFile
-                );
+                File.Delete(tempFile);
             }
         }
     }
@@ -304,25 +258,9 @@ public sealed class ProductConfigService
     // Validation
     // ========================================================
 
-    private static void Validate(ProductConfig product)
+    private static void Validate(ProductConfigInput input)
     {
-        if (
-            string.IsNullOrWhiteSpace(
-                product.Id
-            )
-        )
-        {
-            throw new ArgumentException(
-                "Product ID is required."
-            );
-        }
-
-
-        if (
-            string.IsNullOrWhiteSpace(
-                product.Name
-            )
-        )
+        if (string.IsNullOrWhiteSpace(input.Name))
         {
             throw new ArgumentException(
                 "Product name is required."
@@ -330,8 +268,16 @@ public sealed class ProductConfigService
         }
 
 
-        if (!Uri.TryCreate(product.Url, UriKind.Absolute,out var url) ||
-            (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps)
+        if (
+            !Uri.TryCreate(
+                input.Url,
+                UriKind.Absolute,
+                out var url
+            ) ||
+            (
+                url.Scheme != Uri.UriSchemeHttp &&
+                url.Scheme != Uri.UriSchemeHttps
+            )
         )
         {
             throw new ArgumentException(
@@ -340,9 +286,10 @@ public sealed class ProductConfigService
         }
 
 
-        if (double.IsNaN(product.TargetPrice) ||
-            double.IsInfinity(product.TargetPrice) ||
-            product.TargetPrice <= 0
+        if (
+            double.IsNaN(input.TargetPrice) ||
+            double.IsInfinity(input.TargetPrice) ||
+            input.TargetPrice <= 0
         )
         {
             throw new ArgumentException(
@@ -350,9 +297,39 @@ public sealed class ProductConfigService
             );
         }
 
-        if (string.IsNullOrWhiteSpace(product.Currency))
+
+        if (string.IsNullOrWhiteSpace(input.Currency))
         {
-            throw new ArgumentException("Currency is required.");
+            throw new ArgumentException(
+                "Currency is required."
+            );
         }
+    }
+
+
+    // ========================================================
+    // Random ID Generator
+    // ========================================================
+
+    private static string GenerateId(IEnumerable<ProductConfig> products)
+    {
+        string id;
+
+        do
+        {
+            id = Guid.NewGuid().ToString("N")[..16];
+        }
+        while (
+            products.Any(
+                product =>
+                    string.Equals(
+                        product.Id,
+                        id,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+            )
+        );
+
+        return id;
     }
 }
