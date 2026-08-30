@@ -87,3 +87,5 @@ python/products.json
 .DS_Store
 Thumbs.db
 desktop.ini
+.setup
+.venv

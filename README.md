@@ -1,73 +1,44 @@
 # Price Watch
 
-A personal product price tracking system built with **React, TypeScript, ASP.NET Core, Python, and Playwright**.
+A local-first product price monitoring application built with React, TypeScript, ASP.NET Core, Python, and Playwright.
 
-It automatically checks product prices, compares them with target prices, stores historical data, detects suspicious price changes, sends email alerts, and displays price trends on a local web dashboard.
+Price Watch automatically checks e-commerce product pages, tracks current and historical prices, compares them with target prices, detects suspicious changes, and supports scheduled runs and email notifications.
 
-The scraper runs locally because some monitored websites may block traffic from cloud data centers.
+## Features
 
-The scraper is intended for low-frequency personal price monitoring of publicly accessible product information and should respect website access policies and terms.
+- Product management with backend-generated IDs
+- Automatic price monitoring with Playwright
+- JSON-LD first, conservative DOM fallback
+- Target price and price-drop tracking
+- Historical price data
+- Suspicious price change detection
+- Manual **Run Now** execution
+- Email notifications with duplicate-alert protection
+- Windows Task Scheduler integration
+- Local JSON persistence
+- First-run support without existing runtime data
 
-## Getting Started
-
-### 1. Install dependencies
-
-Frontend:
-
-```bash
-npm install
-```
-
-Python:
-
-```bash
-cd python
-python -m pip install -r requirements.txt
-python -m playwright install firefox
-cd ..
-```
-
-ASP.NET Core:
-
-```bash
-cd backend/PriceWatch.Api
-dotnet restore
-cd ../..
-```
-
-### 2. Run the application
-
-Start the ASP.NET Core API:
-
-```bash
-cd backend/PriceWatch.Api
-dotnet run
-```
-
-In another terminal, start the frontend:
-
-```bash
-npm run dev
-```
-
-Open:
+## Architecture
 
 ```text
-http://localhost:5173
+React + TypeScript + Vite
+        ↓ /api
+ASP.NET Core (.NET 10)
+        ↓
+Python + Playwright
+        ↓
+JSON-LD → DOM Fallback
+        ↓
+Validation / History / Notifications
+        ↓
+Local JSON
 ```
 
-Vite proxies `/api` requests to the local ASP.NET Core backend.
+The frontend handles the UI, ASP.NET Core provides the local REST API, and Python handles browser automation and price extraction.
 
-### 3. Set up Price Watch
+The scraper prioritizes structured Schema.org JSON-LD data. DOM extraction is only used when structured product data is unavailable or unusable.
 
-Use the UI to:
-
-- Add products in **Product Management**
-- Configure email notifications in **Email Settings**
-- Configure automatic checks in **Automation**
-- Run the first price check with **Run Now**
-
-Local configuration files are created when settings are saved.
+Suspicious price changes are separated from normal results to reduce the risk of incorrect prices being accepted.
 
 ## Tech Stack
 
@@ -76,77 +47,52 @@ Local configuration files are created when settings are saved.
 - TypeScript
 - Vite
 - Tailwind CSS
-- Recharts
 
 **Backend**
-- C#
 - ASP.NET Core
 - .NET 10
 
-**Scraper**
+**Scraping**
 - Python
 - Playwright
-- Firefox
 - Pydantic
 
-**Testing**
-- pytest
-
-**Automation**
+**Storage & Automation**
+- Local JSON
 - Windows Task Scheduler
+- PowerShell
 
-## Architecture
-```text
-                    Windows Task Scheduler
-                             │
-                             ▼
-React + TypeScript ───► ASP.NET Core
-        │                    │
-        │                    ├─ Product Management
-        │                    ├─ Run Now
-        │                    ├─ Email Settings
-        │                    └─ Schedule Management
-        │                    │
-        │                    ▼
-        └────────────► Python + Playwright
-                             │
-                             ├─ Scraper adapters
-                             ├─ Price extraction
-                             ├─ Price validation
-                             └─ Run diagnostics
-                             │
-                             ▼
-                         Local data/
-                    ├─ latest.json
-                    ├─ history/
-                    └─ runs/
+## Getting Started
+
+Clone the repository and run:
+
+```powershell
+.\start.ps1
 ```
 
-ASP.NET Core acts as the local application layer between the React UI and the Python scraper. It manages product configuration, scraper execution, email settings, and Windows scheduling.
+The startup script automatically:
 
-The Python scraper handles page loading, price extraction, validation, history generation, and diagnostics.
+- checks Node.js, npm, Python, and .NET
+- installs frontend dependencies when needed
+- creates the Python virtual environment when missing
+- installs Python dependencies when `requirements.txt` changes
+- installs Playwright Firefox when required
+- restores .NET dependencies when needed
+- starts the ASP.NET Core API
+- starts the Vite frontend
 
-Runtime data is stored locally under `data/`.
+Dependencies are skipped on later runs unless the relevant dependency files change.
 
-## Current Features
+To run the scraper once before starting the application:
 
-- Manual and scheduled price checks
-- Target price tracking and price history
-- Product management from the UI
-- Search, filtering, sorting, and price statistics
-- JSON-LD extraction with scraper adapters
-- Suspicious-price and failed-run detection
-- Scraper health and run metadata
-- Email alerts with notification deduplication
-- Local debug artifacts for failed or suspicious checks
-- Cross-process protection against overlapping scraper runs
-- Automated tests with pytest
+```powershell
+.\start.ps1 -RunScraper
+```
 
-## Future Work
+If PowerShell blocks local scripts, enable them once with:
 
-- Continue improving the dashboard and overall UI
-- Improve the first-run and setup experience
-- Add site-specific scraper adapters when needed
-- Refine notification preferences and controls
-- Add useful price analytics without overcomplicating the dashboard
-- Prepare Windows packaging and distribution when the application is ready
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+The project is currently under active development, with the main application architecture and core price-monitoring workflow implemented.
