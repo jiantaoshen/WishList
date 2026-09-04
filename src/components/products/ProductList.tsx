@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
 
 import type {
   DataFile,
@@ -7,13 +10,10 @@ import type {
 } from "../../types/product";
 
 
-// =============================================================
-// Types
-// =============================================================
-
 type ProductFilter =
   | "all"
   | "belowTarget"
+  | "unitBelowTarget"
   | "priceDrops";
 
 
@@ -21,6 +21,8 @@ type ProductSort =
   | "name"
   | "priceLow"
   | "priceHigh"
+  | "unitPriceLow"
+  | "unitPriceHigh"
   | "biggestDrop";
 
 
@@ -28,14 +30,8 @@ interface ProductListProps {
   data: DataFile;
   history: HistoryIndex | null;
   onManageProducts: () => void;
-  onSelectProduct: (product: Product) => void;
-}
-
-
-interface SummaryCardProps {
-  title: string;
-  value: string | number;
-  subtitle?: string;
+  onSelectProduct:
+    (product: Product) => void;
 }
 
 
@@ -59,290 +55,346 @@ export function ProductList({
   onSelectProduct,
 }: ProductListProps) {
 
-  // =========================================================
-  // Dashboard Summary
-  // =========================================================
-
-  const totalProducts = data.data.length;
-
-  const hasProducts =
-    totalProducts > 0;
+  const totalProducts =
+    data.data.length;
 
 
-  const belowTarget = data.data.filter(
-    (product) =>
-      product.current_price !== null &&
-      product.below_target === true
-  ).length;
+  const belowTarget =
+    data.data.filter(
+      (product) =>
+        product.below_target === true
+    ).length;
 
 
-  const priceDrops = data.data.filter(
-    (product) => {
-
-      const currentPrice =
-        product.current_price;
-
-      const previousPrice =
-        product.previous_price;
+  const unitBelowTarget =
+    data.data.filter(
+      (product) =>
+        product.unit_below_target ===
+        true
+    ).length;
 
 
-      return (
-        currentPrice !== null &&
-        previousPrice !== null &&
-        currentPrice < previousPrice
-      );
-
-    }
-  ).length;
-
-
-  // =========================================================
-  // Search / Filter / Sort / Pagination
-  // =========================================================
-
-  const [searchQuery, setSearchQuery] =
-    useState("");
-
-
-  const [filter, setFilter] =
-    useState<ProductFilter>("all");
-
-
-  const [sort, setSort] =
-    useState<ProductSort>("name");
-
-
-  const [page, setPage] =
-    useState(1);
-
-
-  // =========================================================
-  // Visible Products
-  // =========================================================
-
-  const visibleProducts = useMemo(() => {
-
-    const query =
-      searchQuery
-        .trim()
-        .toLowerCase();
-
-
-    const filtered = data.data.filter(
+  const priceDrops =
+    data.data.filter(
       (product) => {
 
-        const matchesName =
-          product.name
-            .toLowerCase()
-            .includes(query);
+        const current =
+          product.current_price;
+
+        const previous =
+          product.previous_price;
 
 
-        const matchesBestStore =
-          product.store
-            ?.toLowerCase()
-            .includes(query) ?? false;
-
-
-        const matchesOfferStore =
-          product.offers
-            ?.some(
-              (offer) =>
-                offer.store
-                  ?.toLowerCase()
-                  .includes(query) ?? false
-            ) ?? false;
-
-
-        const matchesSearch =
-          query.length === 0 ||
-          matchesName ||
-          matchesBestStore ||
-          matchesOfferStore;
-
-
-        if (!matchesSearch) {
-          return false;
-        }
-
-
-        // ===================================================
-        // Filters
-        // ===================================================
-
-        if (filter === "belowTarget") {
-
-          return (
-            product.current_price !== null &&
-            product.below_target === true
-          );
-
-        }
-
-
-        if (filter === "priceDrops") {
-
-          const currentPrice =
-            product.current_price;
-
-          const previousPrice =
-            product.previous_price;
-
-
-          return (
-            currentPrice !== null &&
-            previousPrice !== null &&
-            currentPrice < previousPrice
-          );
-
-        }
-
-
-        return true;
-
+        return (
+          current !== null &&
+          previous !== null &&
+          current < previous
+        );
       }
-    );
+    ).length;
 
 
-    // =======================================================
-    // Sort
-    // =======================================================
-
-    return [...filtered].sort(
-      (a, b) => {
-
-        // Name
-
-        if (sort === "name") {
-
-          return a.name.localeCompare(
-            b.name
-          );
-
-        }
-
-
-        // Price Low -> High
-
-        if (sort === "priceLow") {
-
-          const aPrice =
-            a.current_price ??
-            Number.POSITIVE_INFINITY;
-
-
-          const bPrice =
-            b.current_price ??
-            Number.POSITIVE_INFINITY;
-
-
-          return aPrice - bPrice;
-
-        }
-
-
-        // Price High -> Low
-
-        if (sort === "priceHigh") {
-
-          const aPrice =
-            a.current_price ??
-            Number.NEGATIVE_INFINITY;
-
-
-          const bPrice =
-            b.current_price ??
-            Number.NEGATIVE_INFINITY;
-
-
-          return bPrice - aPrice;
-
-        }
-
-
-        // Biggest Drop
-
-        if (sort === "biggestDrop") {
-
-          const aCurrent =
-            a.current_price;
-
-          const aPrevious =
-            a.previous_price;
-
-
-          const bCurrent =
-            b.current_price;
-
-          const bPrevious =
-            b.previous_price;
-
-
-          const aDrop =
-            aCurrent !== null &&
-            aPrevious !== null
-              ? aPrevious - aCurrent
-              : 0;
-
-
-          const bDrop =
-            bCurrent !== null &&
-            bPrevious !== null
-              ? bPrevious - bCurrent
-              : 0;
-
-
-          return bDrop - aDrop;
-
-        }
-
-
-        return 0;
-
-      }
-    );
-
-  }, [
-    data.data,
+  const [
     searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+
+  const [
     filter,
+    setFilter,
+  ] = useState<ProductFilter>(
+    "all"
+  );
+
+
+  const [
     sort,
-  ]);
+    setSort,
+  ] = useState<ProductSort>(
+    "name"
+  );
+
+
+  const [
+    page,
+    setPage,
+  ] = useState(1);
+
+
+  // =========================================================
+  // Filter / Sort
+  // =========================================================
+
+  const visibleProducts =
+    useMemo(() => {
+
+      const query =
+        searchQuery
+          .trim()
+          .toLowerCase();
+
+
+      const filtered =
+        data.data.filter(
+          (product) => {
+
+            const matchesName =
+              product.name
+                .toLowerCase()
+                .includes(query);
+
+
+            const matchesStore =
+              product.store
+                ?.toLowerCase()
+                .includes(query)
+              ?? false;
+
+
+            const matchesUnitStore =
+              product.unit_store
+                ?.toLowerCase()
+                .includes(query)
+              ?? false;
+
+
+            const matchesOffers =
+              product.offers
+                ?.some(
+                  (offer) =>
+                    offer.store
+                      ?.toLowerCase()
+                      .includes(query)
+                    ||
+                    offer.note
+                      ?.toLowerCase()
+                      .includes(query)
+                )
+              ?? false;
+
+
+            if (
+              query &&
+              !matchesName &&
+              !matchesStore &&
+              !matchesUnitStore &&
+              !matchesOffers
+            ) {
+              return false;
+            }
+
+
+            if (
+              filter ===
+              "belowTarget"
+            ) {
+              return (
+                product.below_target ===
+                true
+              );
+            }
+
+
+            if (
+              filter ===
+              "unitBelowTarget"
+            ) {
+              return (
+                product.unit_below_target ===
+                true
+              );
+            }
+
+
+            if (
+              filter ===
+              "priceDrops"
+            ) {
+
+              const current =
+                product.current_price;
+
+              const previous =
+                product.previous_price;
+
+
+              return (
+                current !== null &&
+                previous !== null &&
+                current < previous
+              );
+            }
+
+
+            return true;
+          }
+        );
+
+
+      return [...filtered].sort(
+        (a, b) => {
+
+          if (sort === "name") {
+
+            return a.name.localeCompare(
+              b.name
+            );
+          }
+
+
+          if (
+            sort === "priceLow"
+          ) {
+
+            return (
+              (
+                a.current_price ??
+                Infinity
+              )
+              -
+              (
+                b.current_price ??
+                Infinity
+              )
+            );
+          }
+
+
+          if (
+            sort === "priceHigh"
+          ) {
+
+            return (
+              (
+                b.current_price ??
+                -Infinity
+              )
+              -
+              (
+                a.current_price ??
+                -Infinity
+              )
+            );
+          }
+
+
+          if (
+            sort ===
+            "unitPriceLow"
+          ) {
+
+            return (
+              (
+                a.current_unit_price ??
+                Infinity
+              )
+              -
+              (
+                b.current_unit_price ??
+                Infinity
+              )
+            );
+          }
+
+
+          if (
+            sort ===
+            "unitPriceHigh"
+          ) {
+
+            return (
+              (
+                b.current_unit_price ??
+                -Infinity
+              )
+              -
+              (
+                a.current_unit_price ??
+                -Infinity
+              )
+            );
+          }
+
+
+          if (
+            sort ===
+            "biggestDrop"
+          ) {
+
+            const aDrop =
+              a.current_price !== null &&
+              a.previous_price !== null
+
+                ? (
+                    a.previous_price -
+                    a.current_price
+                  )
+
+                : 0;
+
+
+            const bDrop =
+              b.current_price !== null &&
+              b.previous_price !== null
+
+                ? (
+                    b.previous_price -
+                    b.current_price
+                  )
+
+                : 0;
+
+
+            return bDrop - aDrop;
+          }
+
+
+          return 0;
+        }
+      );
+
+    }, [
+      data.data,
+      searchQuery,
+      filter,
+      sort,
+    ]);
 
 
   // =========================================================
   // Pagination
   // =========================================================
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(
-      visibleProducts.length /
-      PRODUCTS_PER_PAGE
-    )
-  );
+  const totalPages =
+    Math.max(
+      1,
+
+      Math.ceil(
+        visibleProducts.length /
+        PRODUCTS_PER_PAGE
+      )
+    );
 
 
-  const currentPage = Math.min(
-    page,
-    totalPages
-  );
+  const currentPage =
+    Math.min(
+      page,
+      totalPages
+    );
 
 
   const pageStart =
-    (currentPage - 1) *
-    PRODUCTS_PER_PAGE;
-
-
-  const pageEnd = Math.min(
-    pageStart + PRODUCTS_PER_PAGE,
-    visibleProducts.length
-  );
+    (
+      currentPage - 1
+    ) * PRODUCTS_PER_PAGE;
 
 
   const paginatedProducts =
     visibleProducts.slice(
       pageStart,
-      pageEnd
+      pageStart +
+        PRODUCTS_PER_PAGE
     );
 
 
@@ -353,76 +405,55 @@ export function ProductList({
   return (
     <>
 
-      {/* =====================================================
-          Summary
-      ===================================================== */}
+      {/* Summary */}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mb-8 grid grid-cols-2 gap-4 xl:grid-cols-4">
 
-        <SummaryCard
-          title="Products"
+        <Summary
+          label="Products"
           value={totalProducts}
         />
 
-        <SummaryCard
-          title="Below Target"
+        <Summary
+          label="Below Total Target"
           value={belowTarget}
         />
 
-        <SummaryCard
-          title="Price Drops"
+        <Summary
+          label="Below Unit Target"
+          value={unitBelowTarget}
+        />
+
+        <Summary
+          label="Price Drops"
           value={priceDrops}
         />
 
       </div>
 
 
-      {/* =====================================================
-          Empty State
-      ===================================================== */}
-
-      {!hasProducts && (
+      {totalProducts === 0 ? (
 
         <div className="app-card-dashed px-6 py-14 text-center">
 
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted text-xl text-app-text-secondary">
-            $
-          </div>
-
-
-          <h2 className="app-section-title mt-4">
+          <h2 className="app-section-title">
             No products tracked yet
           </h2>
-
-
-          <p className="app-body mt-1">
-            Add a product to start tracking prices.
-          </p>
-
 
           <button
             type="button"
             onClick={onManageProducts}
-            className="app-btn app-btn-primary mt-5 px-4 py-2.5 text-sm"
+            className="app-btn app-btn-primary mt-5"
           >
             Add Product
           </button>
 
         </div>
 
-      )}
-
-
-      {/* =====================================================
-          Product List
-      ===================================================== */}
-
-      {hasProducts && (
+      ) : (
         <>
 
-          {/* Header */}
-
-          <div className="mb-4 flex items-end justify-between gap-4">
+          <div className="mb-4 flex items-end justify-between">
 
             <div>
 
@@ -431,7 +462,7 @@ export function ProductList({
               </h2>
 
               <p className="app-body mt-1">
-                Click a product to view price history and store offers.
+                Total and unit price tracking
               </p>
 
             </div>
@@ -440,15 +471,8 @@ export function ProductList({
             {history && (
 
               <span className="app-muted">
-
-                {history.periods.length}{" "}
-
-                {history.periods.length === 1
-                  ? "week"
-                  : "weeks"}{" "}
-
-                of history
-
+                {history.periods.length}
+                {" weeks of history"}
               </span>
 
             )}
@@ -458,93 +482,89 @@ export function ProductList({
 
           {/* Search */}
 
-          <div className="mb-4">
+          <input
+            type="search"
+            placeholder="Search products, stores or notes..."
+            value={searchQuery}
 
-            <input
-              type="search"
-              placeholder="Search products or stores..."
-              value={searchQuery}
+            onChange={(event) => {
 
-              onChange={(event) => {
+              setSearchQuery(
+                event.target.value
+              );
 
-                setSearchQuery(
-                  event.target.value
-                );
+              setPage(1);
+            }}
 
-                setPage(1);
-
-              }}
-
-              className="app-input"
-            />
-
-          </div>
+            className="app-input mb-4"
+          />
 
 
-          {/* Filters + Sort */}
+          {/* Filters */}
 
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:justify-between">
 
             <div className="flex flex-wrap gap-2">
 
-              <button
-                type="button"
-
+              <FilterButton
+                active={
+                  filter === "all"
+                }
                 onClick={() => {
                   setFilter("all");
                   setPage(1);
                 }}
-
-                className={
-                  `app-btn rounded-full px-4 py-2 text-sm ${
-                    filter === "all"
-                      ? "app-btn-primary"
-                      : "app-btn-secondary"
-                  }`
-                }
               >
                 All
-              </button>
+              </FilterButton>
 
 
-              <button
-                type="button"
-
+              <FilterButton
+                active={
+                  filter ===
+                  "belowTarget"
+                }
                 onClick={() => {
-                  setFilter("belowTarget");
+                  setFilter(
+                    "belowTarget"
+                  );
                   setPage(1);
                 }}
-
-                className={
-                  `app-btn rounded-full px-4 py-2 text-sm ${
-                    filter === "belowTarget"
-                      ? "status-success border"
-                      : "app-btn-secondary"
-                  }`
-                }
               >
-                Below Target
-              </button>
+                Total Target
+              </FilterButton>
 
 
-              <button
-                type="button"
-
+              <FilterButton
+                active={
+                  filter ===
+                  "unitBelowTarget"
+                }
                 onClick={() => {
-                  setFilter("priceDrops");
+                  setFilter(
+                    "unitBelowTarget"
+                  );
                   setPage(1);
                 }}
+              >
+                Unit Target
+              </FilterButton>
 
-                className={
-                  `app-btn rounded-full px-4 py-2 text-sm ${
-                    filter === "priceDrops"
-                      ? "app-btn-primary"
-                      : "app-btn-secondary"
-                  }`
+
+              <FilterButton
+                active={
+                  filter ===
+                  "priceDrops"
                 }
+                onClick={() => {
+                  setFilter(
+                    "priceDrops"
+                  );
+                  setPage(1);
+                }}
               >
                 Price Drops
-              </button>
+              </FilterButton>
 
             </div>
 
@@ -562,14 +582,15 @@ export function ProductList({
                   value === "name" ||
                   value === "priceLow" ||
                   value === "priceHigh" ||
+                  value === "unitPriceLow" ||
+                  value === "unitPriceHigh" ||
                   value === "biggestDrop"
                 ) {
 
                   setSort(value);
+
                   setPage(1);
-
                 }
-
               }}
 
               className="app-select"
@@ -580,11 +601,19 @@ export function ProductList({
               </option>
 
               <option value="priceLow">
-                Price: Low to High
+                Total: Low to High
               </option>
 
               <option value="priceHigh">
-                Price: High to Low
+                Total: High to Low
+              </option>
+
+              <option value="unitPriceLow">
+                Unit: Low to High
+              </option>
+
+              <option value="unitPriceHigh">
+                Unit: High to Low
               </option>
 
               <option value="biggestDrop">
@@ -596,83 +625,44 @@ export function ProductList({
           </div>
 
 
-          {/* Results Count */}
+          {/* Cards */}
 
-          <div className="mb-3 flex items-center justify-between gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
-            <p className="app-muted">
+            {paginatedProducts.map(
+              (product) => (
 
-              {visibleProducts.length > 0
-                ? `Showing ${
-                    pageStart + 1
-                  }-${pageEnd} of ${
-                    visibleProducts.length
-                  } products`
-                : "No matching products"}
+                <ProductCard
+                  key={
+                    product.product_id
+                  }
+                  product={product}
 
-            </p>
+                  onClick={() =>
+                    onSelectProduct(
+                      product
+                    )
+                  }
+                />
 
-
-            {totalPages > 1 && (
-
-              <span className="app-muted">
-                Page {currentPage} of {totalPages}
-              </span>
-
+              )
             )}
 
           </div>
-
-
-          {/* Products */}
-
-          {paginatedProducts.length > 0 ? (
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-
-              {paginatedProducts.map(
-                (product) => (
-
-                  <ProductCard
-                    key={product.product_id}
-                    product={product}
-
-                    onClick={() =>
-                      onSelectProduct(product)
-                    }
-                  />
-
-                )
-              )}
-
-            </div>
-
-          ) : (
-
-            <div className="app-card px-6 py-12 text-center">
-
-              <p className="font-medium text-app-text-secondary">
-                No products found
-              </p>
-
-              <p className="app-muted mt-1">
-                Try changing your search or filter.
-              </p>
-
-            </div>
-
-          )}
 
 
           {/* Pagination */}
 
           {totalPages > 1 && (
 
-            <div className="mt-6 flex items-center justify-center gap-2">
+            <div className="mt-6 flex justify-center gap-2">
 
               <button
                 type="button"
-                disabled={currentPage === 1}
+
+                disabled={
+                  currentPage === 1
+                }
 
                 onClick={() =>
                   setPage(
@@ -680,44 +670,23 @@ export function ProductList({
                   )
                 }
 
-                className="app-btn app-btn-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                className="app-btn app-btn-secondary px-3 py-2"
               >
                 Previous
               </button>
 
 
-              {Array.from(
-                { length: totalPages },
-                (_, index) => index + 1
-              ).map((pageNumber) => (
-
-                <button
-                  type="button"
-                  key={pageNumber}
-
-                  onClick={() =>
-                    setPage(pageNumber)
-                  }
-
-                  className={
-                    `app-btn h-9 min-w-9 px-3 text-sm ${
-                      pageNumber === currentPage
-                        ? "app-btn-primary"
-                        : "app-btn-secondary"
-                    }`
-                  }
-                >
-                  {pageNumber}
-                </button>
-
-              ))}
+              <span className="app-muted flex items-center">
+                {currentPage} / {totalPages}
+              </span>
 
 
               <button
                 type="button"
 
                 disabled={
-                  currentPage === totalPages
+                  currentPage ===
+                  totalPages
                 }
 
                 onClick={() =>
@@ -726,7 +695,7 @@ export function ProductList({
                   )
                 }
 
-                className="app-btn app-btn-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                className="app-btn app-btn-secondary px-3 py-2"
               >
                 Next
               </button>
@@ -744,42 +713,6 @@ export function ProductList({
 
 
 // =============================================================
-// Summary Card
-// =============================================================
-
-function SummaryCard({
-  title,
-  value,
-  subtitle,
-}: SummaryCardProps) {
-
-  return (
-
-    <div className="app-card p-5">
-
-      <p className="app-card-title">
-        {title}
-      </p>
-
-      <p className="mt-2 text-2xl font-bold text-app-text">
-        {value}
-      </p>
-
-      {subtitle && (
-
-        <p className="app-body mt-1">
-          {subtitle}
-        </p>
-
-      )}
-
-    </div>
-
-  );
-}
-
-
-// =============================================================
 // Product Card
 // =============================================================
 
@@ -791,31 +724,14 @@ function ProductCard({
   const currentPrice =
     product.current_price;
 
-  const previousPrice =
-    product.previous_price;
 
-  const difference =
-    product.difference;
+  const unitPrice =
+    product.current_unit_price ??
+    null;
 
-  const bestStore =
-    product.store ?? null;
 
   const offers =
     product.offers ?? [];
-
-  const offerCount =
-    offers.length;
-
-
-  const isBelowTarget =
-    currentPrice !== null &&
-    product.below_target === true;
-
-
-  const isPriceDrop =
-    currentPrice !== null &&
-    previousPrice !== null &&
-    currentPrice < previousPrice;
 
 
   return (
@@ -823,109 +739,44 @@ function ProductCard({
     <button
       type="button"
       onClick={onClick}
-      className="app-card-interactive group flex min-h-52 w-full flex-col p-4 text-left"
+      className="app-card-interactive flex min-h-60 w-full flex-col p-4 text-left"
     >
 
-      {/* Product Name */}
-
-      <h3
-        title={product.name}
-        className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-app-text transition-colors group-hover:text-app-text-secondary"
-      >
+      <h3 className="line-clamp-2 font-semibold text-app-text">
         {product.name}
       </h3>
 
 
-      {/* Cheapest Store */}
+      {/* Total */}
 
-      <div className="mt-2 min-h-5">
+      <div className="mt-4">
 
-        {bestStore ? (
+        <p className="app-muted text-xs">
+          Lowest total
+        </p>
 
-          <p className="app-muted truncate text-xs">
-
-            Cheapest at{" "}
-
-            <span className="font-medium text-app-text-secondary">
-              {bestStore}
-            </span>
-
-          </p>
-
-        ) : (
-
-          <p className="app-muted truncate text-xs">
-            Store unavailable
-          </p>
-
-        )}
-
-      </div>
-
-
-      {/* Price */}
-
-      <div className="mt-3">
 
         {currentPrice !== null ? (
 
           <p className="text-xl font-bold text-app-text">
-
             {currentPrice.toFixed(2)}
-
-            <span className="ml-1 text-xs font-normal text-app-text-secondary">
-              {product.currency}
-            </span>
-
+            {" "}
+            {product.currency}
           </p>
 
         ) : (
 
-          <p className="text-xl font-bold text-app-text-secondary">
-            No price
+          <p className="text-app-text-secondary">
+            N/A
           </p>
 
         )}
 
 
-        <p className="app-muted mt-1 text-xs">
+        {product.store && (
 
-          Target{" "}
-
-          {product.target_price.toFixed(0)}{" "}
-
-          {product.currency}
-
-        </p>
-
-
-        {offerCount > 0 && (
-
-          <p className="app-muted mt-1 text-xs">
-
-            {offerCount}{" "}
-
-            {offerCount === 1
-              ? "store"
-              : "stores"}{" "}
-
-            compared
-
-          </p>
-
-        )}
-
-
-        {previousPrice !== null && (
-
-          <p className="app-muted mt-1 text-xs">
-
-            Previous{" "}
-
-            {previousPrice.toFixed(0)}{" "}
-
-            {product.currency}
-
+          <p className="app-muted text-xs">
+            {product.store}
           </p>
 
         )}
@@ -933,96 +784,67 @@ function ProductCard({
       </div>
 
 
-      {/* Status */}
+      {/* Unit */}
 
-      <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+      {unitPrice !== null && (
 
-        <div className="min-w-0">
+        <div className="mt-3">
 
-          {currentPrice === null ? (
-
-            <p className="app-muted truncate text-xs">
-              Price unavailable
-            </p>
-
-          ) : (
-            product.below_target === true &&
-            difference !== null
-          ) ? (
-
-            <p className="truncate text-xs font-medium text-success-text">
-
-              ↓{" "}
-
-              {Math.abs(
-                difference
-              ).toFixed(0)}{" "}
-
-              {product.currency} below target
-
-            </p>
-
-          ) : difference !== null ? (
-
-            <p className="app-muted truncate text-xs">
-
-              ↑{" "}
-
-              {Math.abs(
-                difference
-              ).toFixed(0)}{" "}
-
-              {product.currency} above target
-
-            </p>
-
-          ) : (
-
-            <p className="app-muted truncate text-xs">
-              No target comparison
-            </p>
-
-          )}
+          <p className="app-muted text-xs">
+            Lowest unit price
+          </p>
 
 
-          {isPriceDrop &&
-           currentPrice !== null &&
-           previousPrice !== null && (
+          <p className="font-semibold text-app-text">
 
-            <p className="mt-1 truncate text-xs font-medium text-success-text">
+            {unitPrice.toFixed(4)}
+            {" "}
+            {product.currency}
 
-              ↓{" "}
+            {product.unit
+              ? `/${product.unit}`
+              : ""}
 
-              {(
-                previousPrice -
-                currentPrice
-              ).toFixed(0)}{" "}
+          </p>
 
-              {product.currency} since last check
 
+          {product.unit_store && (
+
+            <p className="app-muted text-xs">
+              {product.unit_store}
             </p>
 
           )}
 
         </div>
 
+      )}
 
-        {currentPrice === null ? (
 
-          <span className="status-unknown shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium">
-            Unknown
+      <div className="mt-auto pt-4">
+
+        <p className="app-muted text-xs">
+          {offers.length}{" "}
+          {offers.length === 1
+            ? "store"
+            : "stores"}{" "}
+          compared
+        </p>
+
+
+        {product.below_target && (
+
+          <span className="status-success mt-2 inline-block rounded-full border px-2 py-1 text-[11px]">
+            Total Target
           </span>
 
-        ) : isBelowTarget ? (
+        )}
 
-          <span className="status-success shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium">
-            Target
-          </span>
 
-        ) : (
+        {product.unit_below_target && (
 
-          <span className="status-unknown shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium">
-            Above
+          <span className="status-success ml-2 mt-2 inline-block rounded-full border px-2 py-1 text-[11px]">
+            Unit Target
           </span>
 
         )}
@@ -1030,6 +852,62 @@ function ProductCard({
       </div>
 
     </button>
+  );
+}
 
+
+// =============================================================
+// Helpers
+// =============================================================
+
+function Summary({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+
+  return (
+    <div className="app-card p-5">
+
+      <p className="app-card-title">
+        {label}
+      </p>
+
+      <p className="mt-2 text-2xl font-bold">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+
+      className={
+        `app-btn rounded-full px-4 py-2 text-sm ${
+          active
+            ? "app-btn-primary"
+            : "app-btn-secondary"
+        }`
+      }
+    >
+      {children}
+    </button>
   );
 }

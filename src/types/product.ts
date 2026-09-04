@@ -1,11 +1,19 @@
-export interface ProductError {
-  type: string;
-  message: string;
-}
 export interface ProductOffer {
   store: string;
   url: string;
+
   price: number;
+
+  unit_quantity?: number | null;
+  unit_price?: number | null;
+
+  note?: string | null;
+}
+
+
+export interface ProductError {
+  type: string;
+  message: string;
 }
 
 
@@ -13,16 +21,16 @@ export interface Product {
   product_id: string;
   name: string;
 
-  // Older history files may not contain these fields
-  store?: string | null;
+  // =========================================================
+  // Cheapest total
+  // =========================================================
+
   url: string;
 
-  target_price: number;
+  // Optional for old history
+  store?: string | null;
 
-  status:
-    | "success"
-    | "failed"
-    | "suspicious";
+  target_price: number;
 
   current_price: number | null;
   previous_price: number | null;
@@ -30,15 +38,38 @@ export interface Product {
   below_target: boolean | null;
   difference: number | null;
 
+  // =========================================================
+  // Cheapest unit price
+  // =========================================================
+
+  unit?: string | null;
+
+  unit_url?: string | null;
+  unit_store?: string | null;
+
+  target_unit_price?: number | null;
+
+  current_unit_price?: number | null;
+  previous_unit_price?: number | null;
+
+  unit_below_target?: boolean | null;
+  unit_difference?: number | null;
+
+  // =========================================================
+  // General
+  // =========================================================
+
+  status:
+    | "success"
+    | "failed"
+    | "suspicious";
+
   currency: string;
 
-  // Older history files may not contain offers
+  // Optional for old history
   offers?: ProductOffer[];
 
-  error?: {
-    type: string;
-    message: string;
-  } | null;
+  error?: ProductError | null;
 }
 
 

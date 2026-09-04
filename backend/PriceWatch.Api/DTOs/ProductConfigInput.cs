@@ -8,11 +8,18 @@ namespace PriceWatch.Api.DTOs;
 // =============================================================
 
 public sealed record ProductSourceInput(
+
     [property: JsonPropertyName("store")]
     string Store,
 
     [property: JsonPropertyName("url")]
-    string Url
+    string Url,
+
+    [property: JsonPropertyName("unit_quantity")]
+    double? UnitQuantity,
+
+    [property: JsonPropertyName("note")]
+    string? Note
 );
 
 // =============================================================
@@ -20,6 +27,7 @@ public sealed record ProductSourceInput(
 // =============================================================
 
 public sealed record ProductConfigInput(
+
     [property: JsonPropertyName("name")]
     string Name,
 
@@ -28,6 +36,12 @@ public sealed record ProductConfigInput(
 
     [property: JsonPropertyName("target_price")]
     double TargetPrice,
+
+    [property: JsonPropertyName("target_unit_price")]
+    double? TargetUnitPrice,
+
+    [property: JsonPropertyName("unit")]
+    string? Unit,
 
     [property: JsonPropertyName("currency")]
     string Currency
