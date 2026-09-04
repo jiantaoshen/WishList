@@ -1,12 +1,25 @@
 export const API_BASE_URL = "";
 
+export interface ProductSource {
+  store: string;
+  url: string;
+}
+
+
 export interface ProductConfig {
   id: string;
   name: string;
-  url: string;
+
+  sources: ProductSource[];
+
   target_price: number;
   currency: string;
+
+  // Temporary backward compatibility
+  // for old products using "url"
+  url?: string;
 }
+
 
 export type ProductConfigInput = Omit<ProductConfig, "id">;
 

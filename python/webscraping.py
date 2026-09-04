@@ -58,155 +58,254 @@ NOTIFICATION_STATE_FILE = STATE_DIR / "notifications.json"
 
 load_dotenv(ENV_FILE)
 
+def get_product_sources(product):
+    """
+    Support:
+    1. New format: sources
+    2. Simple format: urls
+    3. Old format: url
+    """
+
+    if product.get("sources"):
+        return product["sources"]
+
+    if product.get("urls"):
+        return [
+            {"url": url}
+            for url in product["urls"]
+        ]
+
+    if product.get("url"):
+        return [
+            {"url": product["url"]}
+        ]
+
+    return []
+
 # ============================================================
 # Check one product
 # ============================================================
-async def check_product(page,product,period):
+async def check_product(page, product, period):
 
-    # Get product data from products.json
+    # ============================================================
+    # Product configuration
+    # ============================================================
+
     name = product["name"]
-    url = product["url"]
     product_id = product.get("id", name)
-    currency = product.get("currency","SEK")
+    currency = product.get("currency", "SEK")
     target_price = float(product["target_price"])
+
+    sources = get_product_sources(product)
 
     print("\n" + "=" * 70)
     print(f"Product: {name}")
-    print(f"URL: {url}")
     print(f"Target price: {target_price:.2f} {currency}")
+    print(f"Sources: {len(sources)}")
 
-    # Get product's price from the page
-    try:
-        # Navigate to product page and wait up to 1 minute for the navigation to start.
-        await page.goto(url, wait_until="commit", timeout=60000)
+    # No URLs configured
+    if not sources:
+        print("❌ No product URLs configured")
 
-        # Select scraper adapter
-        scraper = get_scraper(product)
-
-        # Give dynamic content up to 3 seconds to load and extract periodically for a price.
-        current_price = None
-
-        for attempt in range(4):
-            current_price = await scraper.extract_price(page, product)
-
-            if current_price is not None:
-                break
-
-            if attempt < 3:
-                await page.wait_for_timeout(1000)
-
-        # No price extracted
-        if current_price is None:
-            print("❌ Could not read the current price")
-
-            return ScrapeResult(
-                product_id=product_id,
-                name=name,
-                url=url,
-                target_price=target_price,
-                status="failed",
-                currency=currency,
-                error=ScrapeError(
-                    type="PRICE_NOT_FOUND",
-                    message=("Could not extract a product price")
-                )
-            )
-
-        # Find previous price if any
-        previous_price = (
-            get_previous_price(
-                history_dir=HISTORY_DIR,
-                current_period=period,
-                product_id=product_id
-            )
-        )
-
-        if previous_price is None:
-            print("Previous price: not available")
-        else:
-            print(f"Previous price: {previous_price:.2f} {currency}")
-
-        # Validate current price
-        validation = validate_price(
-            price=current_price,
-            previous_price=previous_price,
-        )
-
-        # Invalid price
-        if (validation.status == PriceValidationStatus.INVALID):
-            message = validation.message or "Invalid price"
-            print(f"❌ {message}")
-
-            return ScrapeResult(
-                product_id=product_id,
-                name=name,
-                url=url,
-                target_price=target_price,
-                status="failed",
-                current_price=current_price,
-                previous_price=previous_price,
-                currency=currency,
-                error=ScrapeError(
-                    type="INVALID_PRICE",
-                    message=message,
-                ),
-            )
-        
-        # Suspicious price
-        if (validation.status == PriceValidationStatus.SUSPICIOUS):
-            message = validation.message or "Suspicious price"
-            print(f"⚠️ Suspicious price: {current_price:.2f} {currency}")
-
-            if (validation.change_ratio is not None):
-                percentage = validation.change_ratio * 100
-                print( f"⚠️ Price change: {percentage:.1f}%")
-
-            print(f"⚠️ Reason: {message}")
-
-            return ScrapeResult(
-                product_id=product_id,
-                name=name,
-                url=url,
-                target_price=target_price,
-                status="suspicious",
-                current_price=current_price,
-                previous_price=previous_price,
-                currency=currency,
-                error=ScrapeError(
-                    type="SUSPICIOUS_PRICE",
-                    message=message,
-                ),
-            )
-
-        # Valid price
-        below_target = current_price <= target_price
-
-        difference = current_price - target_price
-
-        if below_target:
-            print(f"🟢 Current price: {current_price:.2f} {currency}")
-            print(f"🎯 Below target price: {abs(difference):.2f} {currency}")
-
-        else:
-            print(f"⚪ Current price: {current_price:.2f} {currency}")
-            print(f"Still needs to drop by: {difference:.2f} {currency}")
-
-        # Successful result
         return ScrapeResult(
             product_id=product_id,
             name=name,
-            url=url,
+            url="",
             target_price=target_price,
-            status="success",
-            current_price=current_price,
-            previous_price=previous_price,
-            below_target=below_target,
-            difference=round(difference, 2),
-            currency=currency
+            status="failed",
+            currency=currency,
+            error=ScrapeError(
+                type="NO_URL",
+                message="No product URLs configured",
+            ),
         )
-    
-    except Exception as e:
-        print(f"❌ Failed to read page: {e}")
+
+    # ============================================================
+    # Scrape every source
+    # ============================================================
+
+    offers = []
+    errors = []
+
+    for index, source in enumerate(sources, start=1):
+
+        url = source["url"]
+        store = source.get("store", f"Source {index}")
+
+        print()
+        print("-" * 70)
+        print(f"Store: {store}")
+        print(f"URL: {url}")
+
+        # Create a temporary product config for this source.
+        #
+        # This is important because get_scraper() and individual
+        # scraper adapters can continue using product["url"].
+        source_product = {
+            **product,
+            **source,
+            "url": url,
+        }
+
+        try:
+            # Navigate to product page
+            await page.goto(
+                url,
+                wait_until="commit",
+                timeout=60000,
+            )
+
+            # Select scraper based on this source
+            scraper = get_scraper(source_product)
+
+            current_price = None
+
+            # Give dynamic content time to load
+            for attempt in range(4):
+
+                current_price = await scraper.extract_price(
+                    page,
+                    source_product,
+                )
+
+                if current_price is not None:
+                    break
+
+                if attempt < 3:
+                    await page.wait_for_timeout(1000)
+
+            # Could not find price for this source
+            if current_price is None:
+
+                message = "Could not extract a product price"
+
+                print(f"❌ {store}: {message}")
+
+                errors.append(
+                    f"{store}: {message}"
+                )
+
+                # Continue with next store
+                continue
+
+            print(
+                f"✅ {store}: "
+                f"{current_price:.2f} {currency}"
+            )
+
+            offers.append(
+                {
+                    "store": store,
+                    "url": url,
+                    "price": current_price,
+                }
+            )
+
+        except Exception as e:
+
+            print(
+                f"❌ {store}: Failed to read page: {e}"
+            )
+
+            errors.append(
+                f"{store}: {e}"
+            )
+
+            # One store failing should NOT fail the whole product.
+            continue
+
+    # ============================================================
+    # No stores succeeded
+    # ============================================================
+
+    if not offers:
+
+        print()
+        print("❌ All sources failed")
+
+        error_message = "; ".join(errors)
+
+        # Use first URL so debug information still contains
+        # a meaningful product URL.
+        fallback_url = sources[0]["url"]
+
+        return ScrapeResult(
+            product_id=product_id,
+            name=name,
+            url=fallback_url,
+            target_price=target_price,
+            status="failed",
+            currency=currency,
+            error=ScrapeError(
+                type="ALL_SOURCES_FAILED",
+                message=(
+                    error_message
+                    or "Could not extract a price from any source"
+                ),
+            ),
+        )
+
+    # ============================================================
+    # Pick cheapest successful offer
+    # ============================================================
+
+    best_offer = min(
+        offers,
+        key=lambda offer: offer["price"],
+    )
+
+    current_price = best_offer["price"]
+    url = best_offer["url"]
+    best_store = best_offer["store"]
+
+    print()
+    print("=" * 70)
+    print(f"🏆 Cheapest store: {best_store}")
+    print(f"🏆 Cheapest price: {current_price:.2f} {currency}")
+    print(f"🏆 URL: {url}")
+
+    if len(offers) < len(sources):
+        print(
+            f"⚠️ Successful sources: "
+            f"{len(offers)}/{len(sources)}"
+        )
+
+    # ============================================================
+    # Previous price
+    # ============================================================
+
+    previous_price = get_previous_price(
+        history_dir=HISTORY_DIR,
+        current_period=period,
+        product_id=product_id,
+    )
+
+    if previous_price is None:
+        print("Previous price: not available")
+    else:
+        print(
+            f"Previous price: "
+            f"{previous_price:.2f} {currency}"
+        )
+
+    # ============================================================
+    # Validate cheapest current price
+    # ============================================================
+
+    validation = validate_price(
+        price=current_price,
+        previous_price=previous_price,
+    )
+
+    # ============================================================
+    # Invalid
+    # ============================================================
+
+    if validation.status == PriceValidationStatus.INVALID:
+
+        message = validation.message or "Invalid price"
+
+        print(f"❌ {message}")
 
         return ScrapeResult(
             product_id=product_id,
@@ -214,12 +313,121 @@ async def check_product(page,product,period):
             url=url,
             target_price=target_price,
             status="failed",
+            current_price=current_price,
+            previous_price=previous_price,
             currency=currency,
             error=ScrapeError(
-                type="PAGE_CHECK_FAILED",
-                message=str(e),
-            )
+                type="INVALID_PRICE",
+                message=message,
+            ),
         )
+
+    # ============================================================
+    # Suspicious
+    # ============================================================
+
+    if validation.status == PriceValidationStatus.SUSPICIOUS:
+
+        message = (
+            validation.message
+            or "Suspicious price"
+        )
+
+        print(
+            f"⚠️ Suspicious price: "
+            f"{current_price:.2f} {currency}"
+        )
+
+        if validation.change_ratio is not None:
+
+            percentage = (
+                validation.change_ratio * 100
+            )
+
+            print(
+                f"⚠️ Price change: "
+                f"{percentage:.1f}%"
+            )
+
+        print(f"⚠️ Reason: {message}")
+
+        return ScrapeResult(
+            product_id=product_id,
+            name=name,
+            url=url,
+            target_price=target_price,
+            status="suspicious",
+            current_price=current_price,
+            previous_price=previous_price,
+            currency=currency,
+            error=ScrapeError(
+                type="SUSPICIOUS_PRICE",
+                message=message,
+            ),
+        )
+
+    # ============================================================
+    # Valid price
+    # ============================================================
+
+    below_target = (
+        current_price <= target_price
+    )
+
+    difference = (
+        current_price - target_price
+    )
+
+    if below_target:
+
+        print(
+            f"🟢 Current price: "
+            f"{current_price:.2f} {currency}"
+        )
+
+        print(
+            f"🎯 Below target price: "
+            f"{abs(difference):.2f} {currency}"
+        )
+
+    else:
+
+        print(
+            f"⚪ Current price: "
+            f"{current_price:.2f} {currency}"
+        )
+
+        print(
+            f"Still needs to drop by: "
+            f"{difference:.2f} {currency}"
+        )
+
+    # ============================================================
+    # Successful product result
+    # ============================================================
+
+    return ScrapeResult(
+        product_id=product_id,
+        name=name,
+
+        # 最低价商店
+        url=url,
+        store=best_store,
+
+        target_price=target_price,
+        status="success",
+
+        current_price=current_price,
+        previous_price=previous_price,
+
+        below_target=below_target,
+        difference=round(difference, 2),
+
+        currency=currency,
+
+        # 所有商店报价
+        offers=offers,
+    )
 
 # ============================================================
 # Save JSON

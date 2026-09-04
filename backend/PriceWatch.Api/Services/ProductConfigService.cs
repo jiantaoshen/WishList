@@ -25,6 +25,8 @@ public sealed class ProductConfigService
     }
 
 
+
+
     // ========================================================
     // Get all products
     // ========================================================
@@ -78,7 +80,12 @@ public sealed class ProductConfigService
             var product = new ProductConfig(
                 GenerateId(products),
                 input.Name.Trim(),
-                input.Url.Trim(),
+                input.Sources
+                .Select(source => new ProductSource(
+                    source.Store.Trim(),
+                    source.Url.Trim()
+                ))
+                .ToList(),
                 input.TargetPrice,
                 input.Currency.Trim().ToUpperInvariant()
             );
@@ -100,16 +107,11 @@ public sealed class ProductConfigService
     // Update
     // ========================================================
 
-    public async Task<ProductConfig> UpdateAsync(
-        string id,
-        ProductConfigInput input
-    )
+    public async Task<ProductConfig> UpdateAsync(string id, ProductConfigInput input)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
-            throw new ArgumentException(
-                "Product ID is required."
-            );
+            throw new ArgumentException("Product ID is required.");
         }
 
         Validate(input);
@@ -139,11 +141,21 @@ public sealed class ProductConfigService
 
             var updated = new ProductConfig(
                 products[index].Id,
+
                 input.Name.Trim(),
-                input.Url.Trim(),
+                input.Sources
+                    .Select(source => new ProductSource(
+                        source.Store.Trim(),
+                        source.Url.Trim()
+                    ))
+                    .ToList(),
+
                 input.TargetPrice,
-                input.Currency.Trim().ToUpperInvariant()
+                input.Currency
+                    .Trim()
+                    .ToUpperInvariant()
             );
+
 
             products[index] = updated;
 
@@ -267,22 +279,42 @@ public sealed class ProductConfigService
             );
         }
 
-
+        // Must have at least one source
         if (
-            !Uri.TryCreate(
-                input.Url,
-                UriKind.Absolute,
-                out var url
-            ) ||
-            (
-                url.Scheme != Uri.UriSchemeHttp &&
-                url.Scheme != Uri.UriSchemeHttps
-            )
+            input.Sources is null ||
+            input.Sources.Count == 0
         )
         {
             throw new ArgumentException(
-                "A valid HTTP or HTTPS URL is required."
+                "At least one product source is required."
             );
+        }
+
+        // Validate every source
+        foreach (var source in input.Sources)
+        {
+            if (string.IsNullOrWhiteSpace(source.Store))
+            {
+                throw new ArgumentException("Store name is required for every source.");
+            }
+
+
+            if (
+                !Uri.TryCreate(
+                    source.Url,
+                    UriKind.Absolute,
+                    out var url
+                ) ||
+                (
+                    url.Scheme != Uri.UriSchemeHttp &&
+                    url.Scheme != Uri.UriSchemeHttps
+                )
+            )
+            {
+                throw new ArgumentException(
+                    $"A valid HTTP or HTTPS URL is required for store \"{source.Store}\"."
+                );
+            }
         }
 
 
