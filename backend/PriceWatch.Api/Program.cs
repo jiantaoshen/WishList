@@ -171,7 +171,7 @@ app.MapGet(
     {
         // Prevent paths such as:
         //
-        // ../../secret.json
+        // @/secret.json
 
         if (
             string.IsNullOrWhiteSpace(

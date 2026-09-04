@@ -1,17 +1,47 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  CheckCircle2,
+  KeyRound,
+  Mail,
+  RefreshCw,
+  Save,
+  Send,
+  Server,
+} from "lucide-react";
+
+import {
+  Badge,
+} from "@/components/ui/badge";
+
+import {
+  Button,
+} from "@/components/ui/button";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+import {
+  Input,
+} from "@/components/ui/input";
+
+import {
+  Label,
+} from "@/components/ui/label";
 
 import {
   fetchEmailSettings,
   saveEmailSettings,
   sendTestEmail,
-} from "../services/emailSettingsApi";
-
-
-interface InputProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}
+} from "@/services/emailSettingsApi";
 
 
 // =============================================================
@@ -19,54 +49,122 @@ interface InputProps {
 // =============================================================
 
 export function EmailSettings() {
+  const [
+    smtpHost,
+    setSmtpHost,
+  ] = useState(
+    "smtp.gmail.com",
+  );
 
-  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
-  const [smtpPort, setSmtpPort] = useState(587);
-  const [smtpUser, setSmtpUser] = useState("");
-  const [smtpPassword, setSmtpPassword] = useState("");
-  const [emailFrom, setEmailFrom] = useState("");
-  const [emailTo, setEmailTo] = useState("");
-  const [hasPassword, setHasPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [
+    smtpPort,
+    setSmtpPort,
+  ] = useState(587);
+
+  const [
+    smtpUser,
+    setSmtpUser,
+  ] = useState("");
+
+  const [
+    smtpPassword,
+    setSmtpPassword,
+  ] = useState("");
+
+  const [
+    emailFrom,
+    setEmailFrom,
+  ] = useState("");
+
+  const [
+    emailTo,
+    setEmailTo,
+  ] = useState("");
+
+  const [
+    hasPassword,
+    setHasPassword,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
+
+  const [
+    testing,
+    setTesting,
+  ] = useState(false);
+
+  const [
+    message,
+    setMessage,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null,
+  );
 
 
   // =========================================================
-  // Load Settings
+  // Load
   // =========================================================
 
   useEffect(() => {
-
     async function load() {
-
       try {
+        const settings =
+          await fetchEmailSettings();
 
-        const settings = await fetchEmailSettings();
+        setSmtpHost(
+          settings.smtpHost,
+        );
 
-        setSmtpHost(settings.smtpHost);
-        setSmtpPort(settings.smtpPort);
-        setSmtpUser(settings.smtpUser);
-        setEmailFrom(settings.emailFrom);
-        setEmailTo(settings.emailTo);
-        setHasPassword(settings.hasPassword);
+        setSmtpPort(
+          settings.smtpPort,
+        );
 
-      } catch (error) {
+        setSmtpUser(
+          settings.smtpUser,
+        );
 
-        if (error instanceof Error) { setError(error.message); }
+        setEmailFrom(
+          settings.emailFrom,
+        );
 
-      } finally {
+        setEmailTo(
+          settings.emailTo,
+        );
 
+        setHasPassword(
+          settings.hasPassword,
+        );
+      }
+      catch (exception) {
+        setError(
+          getErrorMessage(
+            exception,
+            "Failed to load email settings.",
+          ),
+        );
+      }
+      finally {
         setLoading(false);
-
       }
     }
 
 
-    load();
-
+    void load();
   }, []);
 
 
@@ -75,37 +173,57 @@ export function EmailSettings() {
   // =========================================================
 
   async function handleSave() {
+    if (saving) {
+      return;
+    }
+
 
     setSaving(true);
     setError(null);
     setMessage(null);
 
+
     try {
+      const settings =
+        await saveEmailSettings({
+          smtpHost,
+          smtpPort,
+          smtpUser,
 
-      const settings = await saveEmailSettings({
-        smtpHost,
-        smtpPort,
-        smtpUser,
-        smtpPassword: smtpPassword.trim() ? smtpPassword : null,
-        emailFrom,
-        emailTo,
-      });
+          smtpPassword:
+            smtpPassword.trim()
+              ? smtpPassword
+              : null,
 
-      setHasPassword(settings.hasPassword);
+          emailFrom,
+          emailTo,
+        });
 
-      // Never retain password in React.
+
+      setHasPassword(
+        settings.hasPassword,
+      );
+
+
+      // Never retain password
+      // in React state.
       setSmtpPassword("");
 
-      setMessage("Email settings saved.");
 
-    } catch (error) {
-
-      if (error instanceof Error) { setError(error.message); }
-
-    } finally {
-
+      setMessage(
+        "Email settings saved.",
+      );
+    }
+    catch (exception) {
+      setError(
+        getErrorMessage(
+          exception,
+          "Failed to save email settings.",
+        ),
+      );
+    }
+    finally {
       setSaving(false);
-
     }
   }
 
@@ -115,25 +233,33 @@ export function EmailSettings() {
   // =========================================================
 
   async function handleTest() {
+    if (testing) {
+      return;
+    }
+
 
     setTesting(true);
     setError(null);
     setMessage(null);
 
-    try {
 
+    try {
       await sendTestEmail();
 
-      setMessage("Test email sent successfully.");
-
-    } catch (error) {
-
-      if (error instanceof Error) { setError(error.message); }
-
-    } finally {
-
+      setMessage(
+        "Test email sent successfully.",
+      );
+    }
+    catch (exception) {
+      setError(
+        getErrorMessage(
+          exception,
+          "Failed to send test email.",
+        ),
+      );
+    }
+    finally {
       setTesting(false);
-
     }
   }
 
@@ -144,11 +270,31 @@ export function EmailSettings() {
 
   if (loading) {
     return (
-      <div className="app-card p-6">
-        <p className="app-body">
-          Loading email settings...
-        </p>
-      </div>
+      <Card>
+        <CardContent
+          className="
+            flex items-center
+            gap-3 p-6
+          "
+        >
+          <RefreshCw
+            className="
+              size-4
+              animate-spin
+              text-muted-foreground
+            "
+          />
+
+          <p
+            className="
+              text-sm
+              text-muted-foreground
+            "
+          >
+            Loading email settings...
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -158,160 +304,509 @@ export function EmailSettings() {
   // =========================================================
 
   return (
-    <section className="app-card p-6">
+    <Card>
+      {/* ===================================================
+          Header
+      =================================================== */}
 
-      {/* Header */}
-
-      <div>
-        <h2 className="app-page-title">
-          Email Notifications
-        </h2>
-
-        <p className="app-body mt-1">
-          Configure SMTP settings for Price Watch alerts.
-        </p>
-      </div>
-
-
-      {/* Form */}
-
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-
-        <Input
-          label="SMTP Host"
-          value={smtpHost}
-          onChange={setSmtpHost}
-        />
-
-
+      <CardHeader
+        className="
+          flex flex-col
+          gap-4
+          sm:flex-row
+          sm:items-start
+          sm:justify-between
+        "
+      >
         <div>
+          <CardTitle className="text-xl">
+            Email Notifications
+          </CardTitle>
 
-          <label className="app-body font-medium">
-            SMTP Port
-          </label>
-
-          <input
-            type="number"
-            value={smtpPort}
-            onChange={(event) => setSmtpPort(Number(event.target.value))}
-            className="app-input mt-2"
-          />
-
+          <CardDescription className="mt-1">
+            Configure SMTP settings
+            for Price Watch alerts.
+          </CardDescription>
         </div>
 
 
-        <Input
-          label="SMTP User"
-          value={smtpUser}
-          onChange={setSmtpUser}
+        <PasswordStatus
+          hasPassword={
+            hasPassword
+          }
         />
+      </CardHeader>
 
 
-        <div>
+      <CardContent className="space-y-6">
+        {/* =================================================
+            SMTP
+        ================================================= */}
 
-          <label className="app-body font-medium">
-            SMTP Password
-          </label>
+        <section
+          className="
+            rounded-xl
+            border
+            p-5
+          "
+        >
+          <div
+            className="
+              mb-5 flex
+              items-start gap-3
+            "
+          >
+            <div
+              className="
+                flex size-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-lg
+                border
+                bg-muted/40
+              "
+            >
+              <Server
+                className="
+                  size-4
+                  text-muted-foreground
+                "
+              />
+            </div>
 
-          <input
-            type="password"
-            value={smtpPassword}
-            onChange={(event) => setSmtpPassword(event.target.value)}
-            placeholder={hasPassword ? "Saved — leave blank to keep" : "Enter App Password"}
-            className="app-input mt-2"
-          />
 
-        </div>
+            <div>
+              <h3 className="font-medium">
+                SMTP server
+              </h3>
 
-
-        <Input
-          label="Email From"
-          value={emailFrom}
-          onChange={setEmailFrom}
-        />
-
-        <Input
-          label="Send To"
-          value={emailTo}
-          onChange={setEmailTo}
-        />
-
-      </div>
+              <p
+                className="
+                  mt-1 text-sm
+                  text-muted-foreground
+                "
+              >
+                Connection and
+                authentication settings.
+              </p>
+            </div>
+          </div>
 
 
-      {/* Messages */}
+          <div
+            className="
+              grid gap-4
+              md:grid-cols-2
+            "
+          >
+            <TextField
+              id="smtp-host"
+              label="SMTP Host"
+              value={smtpHost}
+              placeholder="smtp.gmail.com"
+              disabled={
+                saving || testing
+              }
+              onChange={
+                setSmtpHost
+              }
+            />
 
-      {error && (
-        <div className="status-danger mt-5 rounded-xl border px-4 py-3">
-          <p className="text-sm">
+
+            <div className="space-y-2">
+              <Label htmlFor="smtp-port">
+                SMTP Port
+              </Label>
+
+              <Input
+                id="smtp-port"
+                type="number"
+                min={1}
+                max={65535}
+                value={smtpPort}
+                disabled={
+                  saving || testing
+                }
+                onChange={event => {
+                  const value =
+                    Number(
+                      event.target.value,
+                    );
+
+                  setSmtpPort(value);
+                }}
+              />
+            </div>
+
+
+            <TextField
+              id="smtp-user"
+              label="SMTP User"
+              value={smtpUser}
+              placeholder="user@example.com"
+              disabled={
+                saving || testing
+              }
+              onChange={
+                setSmtpUser
+              }
+            />
+
+
+            {/* Password */}
+
+            <div className="space-y-2">
+              <div
+                className="
+                  flex items-center
+                  justify-between
+                  gap-3
+                "
+              >
+                <Label htmlFor="smtp-password">
+                  SMTP Password
+                </Label>
+
+                {hasPassword && (
+                  <span
+                    className="
+                      text-xs
+                      text-muted-foreground
+                    "
+                  >
+                    Saved
+                  </span>
+                )}
+              </div>
+
+
+              <Input
+                id="smtp-password"
+                type="password"
+                value={smtpPassword}
+                autoComplete="new-password"
+                disabled={
+                  saving || testing
+                }
+                placeholder={
+                  hasPassword
+                    ? "Leave blank to keep saved password"
+                    : "Enter App Password"
+                }
+                onChange={event =>
+                  setSmtpPassword(
+                    event.target.value,
+                  )
+                }
+              />
+
+
+              <p
+                className="
+                  text-xs
+                  text-muted-foreground
+                "
+              >
+                {hasPassword
+                  ? "A password is already stored. Enter a new one only to replace it."
+                  : "No SMTP password is currently stored."}
+              </p>
+            </div>
+          </div>
+        </section>
+
+
+        {/* =================================================
+            Email
+        ================================================= */}
+
+        <section
+          className="
+            rounded-xl
+            border
+            p-5
+          "
+        >
+          <div
+            className="
+              mb-5 flex
+              items-start gap-3
+            "
+          >
+            <div
+              className="
+                flex size-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-lg
+                border
+                bg-muted/40
+              "
+            >
+              <Mail
+                className="
+                  size-4
+                  text-muted-foreground
+                "
+              />
+            </div>
+
+
+            <div>
+              <h3 className="font-medium">
+                Email addresses
+              </h3>
+
+              <p
+                className="
+                  mt-1 text-sm
+                  text-muted-foreground
+                "
+              >
+                Configure the sender
+                and notification recipient.
+              </p>
+            </div>
+          </div>
+
+
+          <div
+            className="
+              grid gap-4
+              md:grid-cols-2
+            "
+          >
+            <TextField
+              id="email-from"
+              type="email"
+              label="Email From"
+              value={emailFrom}
+              placeholder="pricewatch@example.com"
+              disabled={
+                saving || testing
+              }
+              onChange={
+                setEmailFrom
+              }
+            />
+
+
+            <TextField
+              id="email-to"
+              type="email"
+              label="Send To"
+              value={emailTo}
+              placeholder="you@example.com"
+              disabled={
+                saving || testing
+              }
+              onChange={
+                setEmailTo
+              }
+            />
+          </div>
+        </section>
+
+
+        {/* =================================================
+            Messages
+        ================================================= */}
+
+        {error && (
+          <div
+            className="
+              rounded-lg
+              border
+              border-destructive/30
+              bg-destructive/5
+              px-4 py-3
+              text-sm
+              text-destructive
+            "
+          >
             {error}
-          </p>
-        </div>
-      )}
-
-      {message && (
-        <div className="status-success mt-5 rounded-xl border px-4 py-3">
-          <p className="text-sm">
-            {message}
-          </p>
-        </div>
-      )}
+          </div>
+        )}
 
 
-      {/* Actions */}
+        {message && (
+          <div
+            className="
+              flex items-start
+              gap-2
+              rounded-lg
+              border
+              bg-muted/40
+              px-4 py-3
+              text-sm
+            "
+          >
+            <CheckCircle2
+              className="
+                mt-0.5
+                size-4
+                shrink-0
+              "
+            />
 
-      <div className="mt-6 flex flex-wrap gap-3">
+            <span>
+              {message}
+            </span>
+          </div>
+        )}
 
-        <button
-          type="button"
-          disabled={saving}
-          onClick={handleSave}
-          className="app-btn app-btn-primary px-5 py-2.5 text-sm"
+
+        {/* =================================================
+            Actions
+        ================================================= */}
+
+        <div
+          className="
+            flex flex-wrap
+            gap-2
+            border-t
+            pt-5
+          "
         >
-          {saving ? "Saving..." : "Save Settings"}
-        </button>
+          <Button
+            type="button"
+            disabled={
+              saving || testing
+            }
+            onClick={() => {
+              void handleSave();
+            }}
+          >
+            <Save />
+
+            {saving
+              ? "Saving..."
+              : "Save settings"}
+          </Button>
 
 
-        <button
-          type="button"
-          disabled={testing || !hasPassword}
-          onClick={handleTest}
-          className="app-btn app-btn-secondary px-5 py-2.5 text-sm"
-        >
-          {testing ? "Sending..." : "Send Test Email"}
-        </button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={
+              testing ||
+              saving ||
+              !hasPassword
+            }
+            onClick={() => {
+              void handleTest();
+            }}
+          >
+            <Send />
 
-      </div>
-
-    </section>
+            {testing
+              ? "Sending..."
+              : "Send test email"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 
 // =============================================================
-// Input
+// Text Field
 // =============================================================
 
-function Input({
+function TextField({
+  id,
   label,
   value,
   onChange,
-}: InputProps) {
-
+  placeholder,
+  disabled = false,
+  type = "text",
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange:
+    (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  type?: "text" | "email";
+}) {
   return (
-    <div>
-
-      <label className="app-body font-medium">
+    <div className="space-y-2">
+      <Label htmlFor={id}>
         {label}
-      </label>
+      </Label>
 
-      <input
-        type="text"
+      <Input
+        id={id}
+        type={type}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="app-input mt-2"
+        placeholder={placeholder}
+        disabled={disabled}
+        onChange={event =>
+          onChange(
+            event.target.value,
+          )
+        }
       />
-
     </div>
   );
+}
+
+
+// =============================================================
+// Password Status
+// =============================================================
+
+function PasswordStatus({
+  hasPassword,
+}: {
+  hasPassword: boolean;
+}) {
+  if (hasPassword) {
+    return (
+      <Badge
+        variant="secondary"
+        className="gap-1"
+      >
+        <KeyRound className="size-3" />
+
+        Password saved
+      </Badge>
+    );
+  }
+
+
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1"
+    >
+      <KeyRound className="size-3" />
+
+      Password required
+    </Badge>
+  );
+}
+
+
+// =============================================================
+// Error
+// =============================================================
+
+function getErrorMessage(
+  exception: unknown,
+  fallback: string,
+): string {
+  if (
+    exception instanceof Error &&
+    exception.message
+  ) {
+    return exception.message;
+  }
+
+  return fallback;
 }
