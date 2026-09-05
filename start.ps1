@@ -3,12 +3,21 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
 $ProjectRoot = $PSScriptRoot
 $FrontendDir = $ProjectRoot
-$PythonDir = Join-Path $ProjectRoot "python"
-$BackendProject = Join-Path $ProjectRoot "backend\PriceWatch.Api"
+
+$BackendRoot = Join-Path $ProjectRoot "backend"
+$BackendProject = Join-Path $BackendRoot "PriceWatch.Api"
+$PythonDir = Join-Path $BackendRoot "python"
+
 $VenvDir = Join-Path $ProjectRoot ".venv"
 $SetupDir = Join-Path $ProjectRoot ".setup"
+
+
+# ============================================================
+# Helpers
+# ============================================================
 
 function Write-Step($message) {
     Write-Host ""
@@ -16,11 +25,11 @@ function Write-Step($message) {
 }
 
 function Require-Command($name, $installHint) {
-    if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
-        Write-Host "Missing required command: $name" -ForegroundColor Red
-        Write-Host $installHint -ForegroundColor Yellow
-        exit 1
-    }
+    if (Get-Command $name -ErrorAction SilentlyContinue) { return }
+
+    Write-Host "Missing required command: $name" -ForegroundColor Red
+    Write-Host $installHint -ForegroundColor Yellow
+    exit 1
 }
 
 function Get-FileHashValue($path) {
@@ -32,15 +41,14 @@ function Test-HashChanged($sourceFile, $markerFile) {
     if (-not (Test-Path $sourceFile)) { return $false }
     if (-not (Test-Path $markerFile)) { return $true }
 
-    $currentHash = Get-FileHashValue $sourceFile
-    $savedHash = (Get-Content $markerFile -Raw).Trim()
-
-    return $currentHash -ne $savedHash
+    return (Get-FileHashValue $sourceFile) -ne (Get-Content $markerFile -Raw).Trim()
 }
 
 function Save-Hash($sourceFile, $markerFile) {
-    $hash = Get-FileHashValue $sourceFile
-    Set-Content -Path $markerFile -Value $hash -Encoding utf8
+    Set-Content `
+        -Path $markerFile `
+        -Value (Get-FileHashValue $sourceFile) `
+        -Encoding utf8
 }
 
 
@@ -67,8 +75,13 @@ Write-Host "Required tools found." -ForegroundColor Green
 $PackageJson = Join-Path $FrontendDir "package.json"
 $PackageLock = Join-Path $FrontendDir "package-lock.json"
 $NodeModules = Join-Path $FrontendDir "node_modules"
+
 $NpmMarker = Join-Path $SetupDir "npm.hash"
 $NpmSource = if (Test-Path $PackageLock) { $PackageLock } else { $PackageJson }
+
+if (-not (Test-Path $PackageJson)) {
+    throw "package.json not found: $PackageJson"
+}
 
 if (-not (Test-Path $NodeModules) -or (Test-HashChanged $NpmSource $NpmMarker)) {
     Write-Step "Installing frontend dependencies"
@@ -83,7 +96,9 @@ if (-not (Test-Path $NodeModules) -or (Test-HashChanged $NpmSource $NpmMarker)) 
             npm install
         }
 
-        if ($LASTEXITCODE -ne 0) { throw "npm dependency installation failed." }
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm dependency installation failed."
+        }
 
         Save-Hash $NpmSource $NpmMarker
     }
@@ -107,7 +122,9 @@ if (-not (Test-Path $VenvPython)) {
 
     python -m venv $VenvDir
 
-    if ($LASTEXITCODE -ne 0) { throw "Failed to create Python virtual environment." }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create Python virtual environment."
+    }
 }
 else {
     Write-Host "Python virtual environment already exists. Skipping." -ForegroundColor DarkGray
@@ -122,19 +139,25 @@ $Requirements = Join-Path $PythonDir "requirements.txt"
 $PythonMarker = Join-Path $SetupDir "requirements.hash"
 
 if (Test-Path $Requirements) {
-    if ((Test-HashChanged $Requirements $PythonMarker) -or -not (Test-Path $PythonMarker)) {
+    if (Test-HashChanged $Requirements $PythonMarker) {
         Write-Step "Installing Python dependencies"
 
         & $VenvPython -m pip install --upgrade pip
-        if ($LASTEXITCODE -ne 0) { throw "Failed to update pip." }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to update pip."
+        }
 
         & $VenvPython -m pip install -r $Requirements
-        if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed." }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Python dependency installation failed."
+        }
 
         Write-Step "Installing Playwright Firefox"
 
         & $VenvPython -m playwright install firefox
-        if ($LASTEXITCODE -ne 0) { throw "Playwright Firefox installation failed." }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Playwright Firefox installation failed."
+        }
 
         Save-Hash $Requirements $PythonMarker
     }
@@ -143,7 +166,7 @@ if (Test-Path $Requirements) {
     }
 }
 else {
-    Write-Host "python\requirements.txt not found. Skipping Python dependency installation." -ForegroundColor Yellow
+    Write-Host "backend\python\requirements.txt not found. Skipping." -ForegroundColor Yellow
 }
 
 
@@ -152,18 +175,27 @@ else {
 # ============================================================
 
 $ProjectFile = Get-ChildItem $BackendProject -Filter "*.csproj" | Select-Object -First 1
-$ProjectAssets = Join-Path $BackendProject "obj\project.assets.json"
 
 if ($null -eq $ProjectFile) {
     throw "No .csproj file found in $BackendProject"
 }
 
-if (-not (Test-Path $ProjectAssets)) {
+$ProjectAssets = Join-Path $BackendProject "obj\project.assets.json"
+$DotnetMarker = Join-Path $SetupDir "dotnet.hash"
+
+if (
+    -not (Test-Path $ProjectAssets) -or
+    (Test-HashChanged $ProjectFile.FullName $DotnetMarker)
+) {
     Write-Step "Restoring ASP.NET Core dependencies"
 
     dotnet restore $ProjectFile.FullName
 
-    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed." }
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet restore failed."
+    }
+
+    Save-Hash $ProjectFile.FullName $DotnetMarker
 }
 else {
     Write-Host ".NET dependencies already restored. Skipping." -ForegroundColor DarkGray
@@ -183,10 +215,17 @@ if ($RunScraper) {
         throw "Scraper entry point not found: $ScraperEntry"
     }
 
-    & $VenvPython $ScraperEntry
+    Push-Location $PythonDir
 
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Scraper finished with an error." -ForegroundColor Yellow
+    try {
+        & $VenvPython $ScraperEntry
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Scraper finished with exit code $LASTEXITCODE." -ForegroundColor Yellow
+        }
+    }
+    finally {
+        Pop-Location
     }
 }
 
@@ -197,15 +236,23 @@ if ($RunScraper) {
 
 Write-Step "Starting ASP.NET Core API"
 
-$BackendCommand = "Set-Location '$ProjectRoot'; dotnet run --project 'backend\PriceWatch.Api'"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", $BackendCommand
+$BackendCommand = "dotnet run --project `"$($ProjectFile.FullName)`""
+
+Start-Process powershell `
+    -WorkingDirectory $BackendRoot `
+    -ArgumentList "-NoExit", "-Command", $BackendCommand
 
 
 Write-Step "Starting Vite frontend"
 
-$FrontendCommand = "Set-Location '$FrontendDir'; npm run dev"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", $FrontendCommand
+Start-Process powershell `
+    -WorkingDirectory $FrontendDir `
+    -ArgumentList "-NoExit", "-Command", "npm run dev"
 
+
+# ============================================================
+# Done
+# ============================================================
 
 Write-Host ""
 Write-Host "Price Watch started." -ForegroundColor Green
@@ -216,3 +263,4 @@ Write-Host "  .\start.ps1"
 Write-Host ""
 Write-Host "Run scraper once before starting:"
 Write-Host "  .\start.ps1 -RunScraper"
+Write-Host ""

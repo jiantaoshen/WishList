@@ -1,0 +1,81 @@
+{
+  "products": {
+    "ACO Spotless Skin Clarifying Face & Body Cleanser 200 ml": {
+      "target_alert_active": true,
+      "last_suspicious_price": null
+    },
+    "Flux Original Coolmint XL 1000 ml": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Inet System G50 R5/5070 Ti": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Webhallen-Config-Core-R5-7500F-RTX-5060Ti-16GB-16GB-1TB-Win-11": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Finish Diskmaskinrengöring Lemon 2 x 250 ml": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "aco-cleanser": {
+      "target_alert_active": true,
+      "last_suspicious_price": null
+    },
+    "flux original": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Inet System": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Webhallen-Core": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "Diskmaskincleaning": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "NetonNetGamingComputer": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "fluxoriginal": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "InetSystem": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "0d3919eb71a64921": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "2eb30e77766b4bfb": {
+      "target_alert_active": true,
+      "last_suspicious_price": null
+    },
+    "11c1e288557248cd": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "d4fd48e394c64a3d": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "560b87eee8a441d7": {
+      "target_alert_active": false,
+      "last_suspicious_price": null
+    },
+    "ae189920285f4431": {
+      "target_alert_active": true,
+      "last_suspicious_price": null
+    }
+  },
+  "last_failed_run_id": "2026-08-26_09-53-50"
+}

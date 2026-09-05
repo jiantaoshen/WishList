@@ -1,6 +1,6 @@
 import pytest
 
-from pricewatch.price_parser import (
+from backend.python.pricewatch.price_parser import (
     parse_price,
 )
 

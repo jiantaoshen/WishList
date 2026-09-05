@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from pricewatch.notifications import (
+from backend.python.pricewatch.notifications import (
     send_email_notification,
 )
 
