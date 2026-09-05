@@ -8,6 +8,8 @@ export interface ProductOffer {
 
   unit_quantity?: number | null;
 
+  comparison_price?: number | null;
+
   unit_price?: number | null;
 
   note?: string | null;
@@ -63,9 +65,12 @@ export interface Product {
   // =========================================================
 
   status:
+    | "not_run"
     | "success"
     | "failed"
     | "suspicious";
+
+  comparison_quantity?: number | null;
 
   currency: string;
 

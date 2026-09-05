@@ -13,20 +13,38 @@ import {
   buttonVariants,
 } from "@/components/ui/button";
 
+import {
+  ProductDetailActions,
+} from "@/components/products/ProductDetailActions";
+
 import type {
   Product,
 } from "@/types/product";
 
 
+// =============================================================
+// Props
+// =============================================================
+
 interface ProductDetailHeaderProps {
   product: Product;
-  onBack: () => void;
+
+  onBack:
+    () => void;
+
+  onRefresh:
+    () => void | Promise<void>;
 }
 
+
+// =============================================================
+// Product Detail Header
+// =============================================================
 
 export function ProductDetailHeader({
   product,
   onBack,
+  onRefresh,
 }: ProductDetailHeaderProps) {
   const offers =
     product.offers ?? [];
@@ -40,9 +58,31 @@ export function ProductDetailHeader({
   const unit =
     product.unit ?? null;
 
+  const isNotRun =
+    product.status === "not_run";
+
+
+  // ===========================================================
+  // Delete Complete
+  // ===========================================================
+
+  async function handleDeleted() {
+    await onRefresh();
+
+    onBack();
+  }
+
+
+  // ===========================================================
+  // Render
+  // ===========================================================
 
   return (
     <div className="space-y-5">
+      {/* =====================================================
+          Back
+      ===================================================== */}
+
       <Button
         type="button"
         variant="ghost"
@@ -56,6 +96,10 @@ export function ProductDetailHeader({
       </Button>
 
 
+      {/* =====================================================
+          Main Header
+      ===================================================== */}
+
       <div
         className="
           flex flex-col
@@ -65,9 +109,13 @@ export function ProductDetailHeader({
           lg:justify-between
         "
       >
-        {/* Product */}
+        {/* ===================================================
+            Product
+        =================================================== */}
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
+          {/* Title + Status */}
+
           <div
             className="
               flex flex-wrap
@@ -85,6 +133,21 @@ export function ProductDetailHeader({
             </h1>
 
 
+            {/* Not run */}
+
+            {product.status ===
+              "not_run" && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground"
+              >
+                Not run yet
+              </Badge>
+            )}
+
+
+            {/* Failed */}
+
             {product.status ===
               "failed" && (
               <Badge variant="destructive">
@@ -92,6 +155,8 @@ export function ProductDetailHeader({
               </Badge>
             )}
 
+
+            {/* Suspicious */}
 
             {product.status ===
               "suspicious" && (
@@ -101,6 +166,10 @@ export function ProductDetailHeader({
             )}
           </div>
 
+
+          {/* =================================================
+              Metadata
+          ================================================= */}
 
           <div
             className="
@@ -118,16 +187,24 @@ export function ProductDetailHeader({
             >
               <Store className="size-4" />
 
-              {offers.length}{" "}
-              {offers.length === 1
-                ? "store"
-                : "stores"}
+              {isNotRun
+                ? "Waiting for first run"
+                : (
+                    <>
+                      {offers.length}{" "}
+
+                      {offers.length === 1
+                        ? "store"
+                        : "stores"}
+                    </>
+                  )}
             </span>
 
 
             {totalStore && (
               <span>
                 Lowest total:{" "}
+
                 <strong className="text-foreground">
                   {totalStore}
                 </strong>
@@ -138,16 +215,44 @@ export function ProductDetailHeader({
             {unitStore && (
               <span>
                 Lowest unit:{" "}
+
                 <strong className="text-foreground">
                   {unitStore}
                 </strong>
               </span>
             )}
           </div>
+
+
+          {/* =================================================
+              Edit / Delete
+          ================================================= */}
+
+          <div className="mt-4">
+            <ProductDetailActions
+              productId={
+                product.product_id
+              }
+
+              productName={
+                product.name
+              }
+
+              onUpdated={
+                onRefresh
+              }
+
+              onDeleted={
+                handleDeleted
+              }
+            />
+          </div>
         </div>
 
 
-        {/* Price */}
+        {/* ===================================================
+            Price
+        =================================================== */}
 
         <div
           className="
@@ -157,7 +262,8 @@ export function ProductDetailHeader({
         >
           <p
             className="
-              text-xs font-medium
+              text-xs
+              font-medium
               uppercase
               tracking-wider
               text-muted-foreground
@@ -167,9 +273,12 @@ export function ProductDetailHeader({
           </p>
 
 
+          {/* Total Price */}
+
           <p
             className="
-              mt-1 text-3xl
+              mt-1
+              text-3xl
               font-semibold
               tracking-tight
               tabular-nums
@@ -183,11 +292,13 @@ export function ProductDetailHeader({
                 )
               : "—"}
 
+
             {product.current_price !==
               null && (
               <span
                 className="
-                  ml-1 text-sm
+                  ml-1
+                  text-sm
                   font-normal
                   text-muted-foreground
                 "
@@ -198,13 +309,32 @@ export function ProductDetailHeader({
           </p>
 
 
-          {product.current_unit_price !==
-            null &&
+          {/* Not Run */}
+
+          {isNotRun && (
+            <p
+              className="
+                mt-2
+                text-sm
+                text-muted-foreground
+              "
+            >
+              No price data yet
+            </p>
+          )}
+
+
+          {/* Unit Price */}
+
+          {!isNotRun &&
+            product.current_unit_price !==
+              null &&
             product.current_unit_price !==
               undefined && (
               <p
                 className="
-                  mt-2 text-sm
+                  mt-2
+                  text-sm
                   font-medium
                   text-muted-foreground
                 "
@@ -213,6 +343,7 @@ export function ProductDetailHeader({
                   product.current_unit_price,
                   4,
                 )}{" "}
+
                 {product.currency}
 
                 {unit
@@ -222,23 +353,33 @@ export function ProductDetailHeader({
             )}
 
 
-          {product.url && (
-            <a
-                href={product.url}
+          {/* Open Offer */}
+
+          {!isNotRun &&
+            product.url && (
+              <a
+                href={
+                  product.url
+                }
                 target="_blank"
                 rel="noopener noreferrer"
-                className={buttonVariants({
-                variant: "link",
-                size: "sm",
-                className: "mt-1 px-0",
-                })}
-            >
+                className={
+                  buttonVariants({
+                    variant: "link",
+
+                    size: "sm",
+
+                    className:
+                      "mt-1 px-0",
+                  })
+                }
+              >
                 Open offer
 
                 <ExternalLink
-                data-icon="inline-end"
+                  data-icon="inline-end"
                 />
-            </a>
+              </a>
             )}
         </div>
       </div>
@@ -246,6 +387,10 @@ export function ProductDetailHeader({
   );
 }
 
+
+// =============================================================
+// Format
+// =============================================================
 
 function formatNumber(
   value: number,
@@ -256,6 +401,7 @@ function formatNumber(
     {
       minimumFractionDigits:
         decimals,
+
       maximumFractionDigits:
         decimals,
     },

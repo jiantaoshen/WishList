@@ -63,8 +63,12 @@ export function ProductCard({
     product.target_unit_price ??
     null;
 
+  const isNotRun =
+    product.status === "not_run";
+
 
   const priceDrop =
+    !isNotRun &&
     currentPrice !== null &&
     previousPrice !== null &&
     currentPrice < previousPrice
@@ -118,6 +122,7 @@ export function ProductCard({
                 {product.name}
               </CardTitle>
 
+
               <div
                 className="
                   mt-2 flex
@@ -128,18 +133,28 @@ export function ProductCard({
               >
                 <Store className="size-3.5" />
 
-                <span>
-                  {offers.length}{" "}
-                  {offers.length === 1
-                    ? "store"
-                    : "stores"}
-                </span>
+
+                {isNotRun ? (
+                  <span>
+                    Waiting for first run
+                  </span>
+                ) : (
+                  <span>
+                    {offers.length}{" "}
+
+                    {offers.length === 1
+                      ? "store"
+                      : "stores"}
+                  </span>
+                )}
               </div>
             </div>
 
 
             <ProductStatus
-              status={product.status}
+              status={
+                product.status
+              }
             />
           </div>
         </CardHeader>
@@ -160,10 +175,18 @@ export function ProductCard({
 
           <PriceBlock
             label="Lowest Total"
-            price={currentPrice}
-            currency={product.currency}
-            store={totalStore}
-            target={product.target_price}
+            price={
+              currentPrice
+            }
+            currency={
+              product.currency
+            }
+            store={
+              totalStore
+            }
+            target={
+              product.target_price
+            }
           />
 
 
@@ -171,11 +194,21 @@ export function ProductCard({
 
           <PriceBlock
             label="Lowest Unit"
-            price={currentUnitPrice}
-            currency={product.currency}
-            unit={unit}
-            store={unitStore}
-            target={unitTarget}
+            price={
+              currentUnitPrice
+            }
+            currency={
+              product.currency
+            }
+            unit={
+              unit
+            }
+            store={
+              unitStore
+            }
+            target={
+              unitTarget
+            }
             borderLeft
           />
         </CardContent>
@@ -192,7 +225,17 @@ export function ProductCard({
             px-5 py-2
           "
         >
-          {priceDrop !== null ? (
+          {isNotRun ? (
+            <span
+              className="
+                text-xs
+                text-muted-foreground
+              "
+            >
+              Run scraper to get
+              the first price
+            </span>
+          ) : priceDrop !== null ? (
             <div
               className="
                 flex items-center
@@ -229,31 +272,49 @@ export function ProductCard({
 
         <CardFooter
           className="
-            min-h-[60px]
+            min-h-15
             gap-2
             border-t
             px-5 py-3
           "
         >
-          <TotalTargetBadge
-            currentPrice={currentPrice}
-            belowTarget={
-              product.below_target
-            }
-          />
+          {isNotRun ? (
+            <Badge
+              variant="outline"
+              className="
+                gap-1
+                text-muted-foreground
+              "
+            >
+              <Minus className="size-3" />
+
+              Waiting for first run
+            </Badge>
+          ) : (
+            <>
+              <TotalTargetBadge
+                currentPrice={
+                  currentPrice
+                }
+                belowTarget={
+                  product.below_target
+                }
+              />
 
 
-          <UnitTargetBadge
-            currentUnitPrice={
-              currentUnitPrice
-            }
-            targetUnitPrice={
-              unitTarget
-            }
-            belowTarget={
-              product.unit_below_target
-            }
-          />
+              <UnitTargetBadge
+                currentUnitPrice={
+                  currentUnitPrice
+                }
+                targetUnitPrice={
+                  unitTarget
+                }
+                belowTarget={
+                  product.unit_below_target
+                }
+              />
+            </>
+          )}
         </CardFooter>
       </Card>
     </button>
@@ -294,9 +355,11 @@ function PriceBlock({
         `
           min-w-0
           px-5 py-5
-          ${borderLeft
-            ? "border-l"
-            : ""}
+          ${
+            borderLeft
+              ? "border-l"
+              : ""
+          }
         `
       }
     >
@@ -326,7 +389,9 @@ function PriceBlock({
               tabular-nums
             "
           >
-            {formatPriceValue(price)}
+            {formatPriceValue(
+              price,
+            )}
 
             <span
               className="
@@ -394,7 +459,11 @@ function PriceBlock({
             "
           >
             Target{" "}
-            {formatPriceValue(target)}{" "}
+
+            {formatPriceValue(
+              target,
+            )}{" "}
+
             {currency}
 
             {unit
@@ -424,9 +493,37 @@ function PriceBlock({
 function ProductStatus({
   status,
 }: {
-  status: Product["status"];
+  status:
+    Product["status"];
 }) {
-  if (status === "failed") {
+  // -----------------------------------------------------------
+  // Never run
+  // -----------------------------------------------------------
+
+  if (
+    status === "not_run"
+  ) {
+    return (
+      <Badge
+        variant="outline"
+        className="
+          shrink-0
+          text-muted-foreground
+        "
+      >
+        Not run yet
+      </Badge>
+    );
+  }
+
+
+  // -----------------------------------------------------------
+  // Failed
+  // -----------------------------------------------------------
+
+  if (
+    status === "failed"
+  ) {
     return (
       <Badge
         variant="destructive"
@@ -438,7 +535,13 @@ function ProductStatus({
   }
 
 
-  if (status === "suspicious") {
+  // -----------------------------------------------------------
+  // Suspicious
+  // -----------------------------------------------------------
+
+  if (
+    status === "suspicious"
+  ) {
     return (
       <Badge
         variant="outline"
@@ -455,6 +558,7 @@ function ProductStatus({
   }
 
 
+  // Success does not need a badge.
   return null;
 }
 
@@ -467,16 +571,22 @@ function TotalTargetBadge({
   currentPrice,
   belowTarget,
 }: {
-  currentPrice: number | null;
+  currentPrice:
+    number | null;
 
   belowTarget:
     boolean | null;
 }) {
-  if (currentPrice === null) {
+  if (
+    currentPrice === null
+  ) {
     return (
       <Badge
         variant="outline"
-        className="gap-1 text-muted-foreground"
+        className="
+          gap-1
+          text-muted-foreground
+        "
       >
         <Minus className="size-3" />
 
@@ -486,7 +596,9 @@ function TotalTargetBadge({
   }
 
 
-  if (belowTarget === true) {
+  if (
+    belowTarget === true
+  ) {
     return (
       <Badge
         variant="default"
@@ -517,14 +629,20 @@ function UnitTargetBadge({
   targetUnitPrice,
   belowTarget,
 }: {
-  currentUnitPrice: number | null;
+  currentUnitPrice:
+    number | null;
 
-  targetUnitPrice: number | null;
+  targetUnitPrice:
+    number | null;
 
   belowTarget:
-    boolean | null | undefined;
+    boolean |
+    null |
+    undefined;
 }) {
-  if (targetUnitPrice === null) {
+  if (
+    targetUnitPrice === null
+  ) {
     return (
       <Badge
         variant="outline"
@@ -538,7 +656,9 @@ function UnitTargetBadge({
   }
 
 
-  if (currentUnitPrice === null) {
+  if (
+    currentUnitPrice === null
+  ) {
     return (
       <Badge
         variant="outline"
@@ -555,7 +675,9 @@ function UnitTargetBadge({
   }
 
 
-  if (belowTarget === true) {
+  if (
+    belowTarget === true
+  ) {
     return (
       <Badge
         variant="secondary"
