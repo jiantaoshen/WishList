@@ -1,6 +1,6 @@
 # Price Watch
 
-A local-first product price monitoring application built with React, TypeScript, ASP.NET Core, Python, and Playwright.
+A local-first product price monitoring application built with React, TypeScript, ASP.NET Core and Python.
 
 Price Watch automatically checks e-commerce product pages, tracks current and historical prices, compares them with target prices, detects suspicious changes, and supports scheduled runs and email notifications.
 
@@ -8,7 +8,6 @@ Price Watch automatically checks e-commerce product pages, tracks current and hi
 
 - Product management with backend-generated IDs
 - Automatic price monitoring with Playwright
-- JSON-LD first, conservative DOM fallback
 - Target price and price-drop tracking
 - Historical price data
 - Suspicious price change detection
@@ -16,29 +15,26 @@ Price Watch automatically checks e-commerce product pages, tracks current and hi
 - Email notifications with duplicate-alert protection
 - Windows Task Scheduler integration
 - Local JSON persistence
-- First-run support without existing runtime data
 
 ## Architecture
 
 ```text
-React + TypeScript + Vite
+React + TypeScript + Vite + shadcn UI
         ↓ /api
 ASP.NET Core (.NET 10)
         ↓
-Python + Playwright
-        ↓
-JSON-LD → DOM Fallback
-        ↓
-Validation / History / Notifications
+Scraper + Windows Task Scheduler + Email Notifications
         ↓
 Local JSON
 ```
 
-The frontend handles the UI, ASP.NET Core provides the local REST API, and Python handles browser automation and price extraction.
+The frontend handles the UI and CRUD operation, ASP.NET Core provides the local REST API, and Python handles browser automation and price extraction.
 
 The scraper prioritizes structured Schema.org JSON-LD data. DOM extraction is only used when structured product data is unavailable or unusable.
 
 Suspicious price changes are separated from normal results to reduce the risk of incorrect prices being accepted.
+
+shadcn UI was used for fast development without design UI. 
 
 ## Tech Stack
 
@@ -47,6 +43,7 @@ Suspicious price changes are separated from normal results to reduce the risk of
 - TypeScript
 - Vite
 - Tailwind CSS
+- shadcn UI
 
 **Backend**
 - ASP.NET Core

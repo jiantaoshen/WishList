@@ -1,20 +1,51 @@
 export const API_BASE_URL = "";
 
+
+// =============================================================
+// Types
+// =============================================================
+
+export interface ProductSource {
+  store: string;
+  url: string;
+
+  unit_quantity: number | null;
+
+  note: string | null;
+}
+
+
 export interface ProductConfig {
   id: string;
   name: string;
-  url: string;
+
+  sources: ProductSource[];
+
   target_price: number;
+
+  target_unit_price: number | null;
+
+  unit: string | null;
+
   currency: string;
+
+  // Old JSON compatibility
+  url?: string;
 }
 
-export type ProductConfigInput = Omit<ProductConfig, "id">;
+
+export type ProductConfigInput = Omit<
+  ProductConfig,
+  "id" | "url"
+>;
+
 
 // =============================================================
 // Fetch
 // =============================================================
 
-export async function fetchProductConfigs(): Promise<ProductConfig[]> {
+export async function fetchProductConfigs():
+Promise<ProductConfig[]> {
 
   const response = await fetch(
     `${API_BASE_URL}/api/product-config`,
@@ -23,11 +54,15 @@ export async function fetchProductConfigs(): Promise<ProductConfig[]> {
     },
   );
 
+
   if (!response.ok) {
+
     throw new Error(
       `Failed to load product configuration: ${response.status}`,
     );
+
   }
+
 
   return response.json();
 }
@@ -47,21 +82,30 @@ export async function createProductConfig(
       method: "POST",
 
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":
+          "application/json",
       },
 
-      body: JSON.stringify(product),
+      body: JSON.stringify(
+        product
+      ),
     },
   );
 
+
   if (!response.ok) {
-    const text = await response.text();
+
+    const text =
+      await response.text();
+
 
     throw new Error(
       text ||
       `Failed to create product: ${response.status}`,
     );
+
   }
+
 
   return response.json();
 }
@@ -82,21 +126,30 @@ export async function updateProductConfig(
       method: "PUT",
 
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":
+          "application/json",
       },
 
-      body: JSON.stringify(product),
+      body: JSON.stringify(
+        product
+      ),
     },
   );
 
+
   if (!response.ok) {
-    const text = await response.text();
+
+    const text =
+      await response.text();
+
 
     throw new Error(
       text ||
       `Failed to update product: ${response.status}`,
     );
+
   }
+
 
   return response.json();
 }
@@ -117,9 +170,12 @@ export async function deleteProductConfig(
     },
   );
 
+
   if (!response.ok) {
+
     throw new Error(
       `Failed to delete product: ${response.status}`,
     );
+
   }
 }

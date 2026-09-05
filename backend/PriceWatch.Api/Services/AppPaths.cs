@@ -1,62 +1,24 @@
 public sealed class AppPaths
 {
     public string RootDirectory { get; }
-
     public string PythonDirectory { get; }
-
     public string DataDirectory { get; }
-
     public string HistoryDirectory { get; }
-
     public string RunsDirectory { get; }
-
     public string SettingsDirectory { get; }
-
     public string LatestFile { get; }
-
     public string ProductsFile { get; }
-
     public string EnvFile { get; }
 
 
-    public AppPaths(
-        IWebHostEnvironment environment
-    )
+    public AppPaths(IWebHostEnvironment environment)
     {
-        RootDirectory =
-            ResolveRootDirectory(
-                environment
-            );
-
-        PythonDirectory =
-            Path.Combine(
-                RootDirectory,
-                "python"
-            );
-
-        DataDirectory =
-            Path.Combine(
-                RootDirectory,
-                "data"
-            );
-
-        HistoryDirectory =
-            Path.Combine(
-                DataDirectory,
-                "history"
-            );
-
-        RunsDirectory =
-            Path.Combine(
-                DataDirectory,
-                "runs"
-            );
-
-        SettingsDirectory =
-            Path.Combine(
-                DataDirectory,
-                "settings"
-            );
+        RootDirectory = ResolveRootDirectory(environment);
+        PythonDirectory = Path.Combine(RootDirectory,"python");
+        DataDirectory = Path.Combine(RootDirectory,"data");
+        HistoryDirectory =Path.Combine(DataDirectory,"history");
+        RunsDirectory =Path.Combine(DataDirectory,"runs");
+        SettingsDirectory =Path.Combine(DataDirectory,"settings");
 
         LatestFile =
             Path.Combine(
