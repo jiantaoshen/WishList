@@ -1,214 +1,117 @@
-export const API_BASE_URL = "";
+import { apiJson, jsonRequest } from "@/services/api";
+
+
+const PRODUCTS_URL = "/api/product-config";
+
 
 export interface ProductSource {
   store: string;
   url: string;
-
-  // Optional only for old JSON/API compatibility.
   scraping_enabled?: boolean;
-
   manual_price?: number | null;
-
   unit_quantity: number | null;
   note: string | null;
 }
-
 
 export interface ProductConfig {
   id: string;
   name: string;
-
   scraping_enabled?: boolean;
-
-  comparison_quantity?:
-    number | null;
-
+  comparison_quantity?: number | null;
   sources: ProductSource[];
-
   target_price: number;
-
-  target_unit_price:
-    number | null;
-
+  target_unit_price: number | null;
   unit: string | null;
-
   currency: string;
-
-  // Old single-URL product compatibility.
   url?: string;
 }
-
 
 export interface ProductSourceInput {
   store: string;
   url: string;
-
   scraping_enabled: boolean;
-
   manual_price: number | null;
-
   unit_quantity: number | null;
   note: string | null;
 }
 
-
 export interface ProductConfigInput {
   name: string;
-
   scraping_enabled: boolean;
-
-  comparison_quantity:
-    number | null;
-
-  sources:
-    ProductSourceInput[];
-
+  comparison_quantity: number | null;
+  sources: ProductSourceInput[];
   target_price: number;
-
-  target_unit_price:
-    number | null;
-
+  target_unit_price: number | null;
   unit: string | null;
-
   currency: string;
 }
 
-// =============================================================
-// Fetch
-// =============================================================
 
-export async function fetchProductConfigs():
-Promise<ProductConfig[]> {
+export async function fetchProductConfigs(): Promise<ProductConfig[]> {
+  const products = await apiJson<ProductConfig[]>(PRODUCTS_URL, {
+    cache: "no-store",
+  });
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config`,
-    {
-      cache: "no-store",
-    },
-  );
-
-
-  if (!response.ok) {
-
-    throw new Error(
-      `Failed to load product configuration: ${response.status}`,
-    );
-
+  if (!Array.isArray(products)) {
+    throw new Error("Invalid product configuration response.");
   }
 
-
-  return response.json();
+  return products.map(normalizeProduct);
 }
 
-
-// =============================================================
-// Create
-// =============================================================
 
 export async function createProductConfig(
-  product: ProductConfigInput,
+  input: ProductConfigInput,
 ): Promise<ProductConfig> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config`,
-    {
-      method: "POST",
-
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-
-      body: JSON.stringify(
-        product
-      ),
-    },
+  const product = await apiJson<ProductConfig>(
+    PRODUCTS_URL,
+    jsonRequest("POST", input),
   );
 
-
-  if (!response.ok) {
-
-    const text =
-      await response.text();
-
-
-    throw new Error(
-      text ||
-      `Failed to create product: ${response.status}`,
-    );
-
-  }
-
-
-  return response.json();
+  return normalizeProduct(product);
 }
 
-
-// =============================================================
-// Update
-// =============================================================
 
 export async function updateProductConfig(
   id: string,
-  product: ProductConfigInput,
+  input: ProductConfigInput,
 ): Promise<ProductConfig> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
-    {
-      method: "PUT",
-
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-
-      body: JSON.stringify(
-        product
-      ),
-    },
+  const product = await apiJson<ProductConfig>(
+    `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
+    jsonRequest("PUT", input),
   );
 
-
-  if (!response.ok) {
-
-    const text =
-      await response.text();
-
-
-    throw new Error(
-      text ||
-      `Failed to update product: ${response.status}`,
-    );
-
-  }
-
-
-  return response.json();
+  return normalizeProduct(product);
 }
 
 
-// =============================================================
-// Delete
-// =============================================================
-
-export async function deleteProductConfig(
-  id: string,
-): Promise<void> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-    },
+export async function deleteProductConfig(id: string): Promise<void> {
+  await apiJson<void>(
+    `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
   );
+}
 
 
-  if (!response.ok) {
+function normalizeProduct(product: ProductConfig): ProductConfig {
+  const raw = product as ProductConfig & {
+    Id?: string;
+    product_id?: string;
+    productId?: string;
+  };
 
-    throw new Error(
-      `Failed to delete product: ${response.status}`,
-    );
+  const id =
+    product.id ??
+    raw.Id ??
+    raw.product_id ??
+    raw.productId;
 
+  if (!id) {
+    throw new Error(`Product "${product.name}" has no ID.`);
   }
+
+  return {
+    ...product,
+    id,
+  };
 }

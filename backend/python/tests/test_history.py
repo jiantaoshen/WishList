@@ -1,6 +1,6 @@
 import json
 
-from pricewatch.history import (
+from backend.python.pricewatch.history import (
     get_previous_price,
 )
 

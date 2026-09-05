@@ -1,6 +1,5 @@
 import json
-
-from pricewatch.price_parser import parse_price
+from .price_parser import parse_price
 
 
 # ============================================================

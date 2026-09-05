@@ -1,22 +1,22 @@
 using System.Text;
 using System.Text.Json;
+
 using PriceWatch.Api.DTOs;
 using PriceWatch.Api.Models;
 
 namespace PriceWatch.Api.Services;
 
+
 public sealed class ProductConfigService
 {
     private readonly string _productsFile;
-
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-    private readonly JsonSerializerOptions _jsonOptions =
-        new()
-        {
-            WriteIndented = true,
-            PropertyNameCaseInsensitive = true
-        };
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+    };
 
 
     public ProductConfigService(AppPaths paths)
@@ -25,28 +25,19 @@ public sealed class ProductConfigService
     }
 
 
-
-
-    // ========================================================
-    // Get all products
-    // ========================================================
+    // ============================================================
+    // Get
+    // ============================================================
 
     public async Task<List<ProductConfig>> GetAllAsync()
     {
-        if (!File.Exists(_productsFile))
-        {
-            return [];
-        }
-
+        if (!File.Exists(_productsFile)) return [];
 
         try
         {
             var json = await File.ReadAllTextAsync(_productsFile);
 
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return [];
-            }
+            if (string.IsNullOrWhiteSpace(json)) return [];
 
             return JsonSerializer.Deserialize<List<ProductConfig>>(
                 json,
@@ -63,9 +54,9 @@ public sealed class ProductConfigService
     }
 
 
-    // ========================================================
+    // ============================================================
     // Create
-    // ========================================================
+    // ============================================================
 
     public async Task<ProductConfig> CreateAsync(ProductConfigInput input)
     {
@@ -95,45 +86,31 @@ public sealed class ProductConfigService
     }
 
 
-    // ========================================================
+    // ============================================================
     // Update
-    // ========================================================
+    // ============================================================
 
     public async Task<ProductConfig> UpdateAsync(
         string id,
         ProductConfigInput input
     )
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ArgumentException(
-                "Product ID is required."
-            );
-        }
-
-
+        RequireId(id);
         Validate(input);
-
 
         await _writeLock.WaitAsync();
 
-
         try
         {
-            var products =
-                await GetAllAsync();
+            var products = await GetAllAsync();
 
-
-            var index =
-                products.FindIndex(
-                    product =>
-                        string.Equals(
-                            product.Id,
-                            id,
-                            StringComparison.OrdinalIgnoreCase
-                        )
-                );
-
+            var index = products.FindIndex(
+                product => string.Equals(
+                    product.Id,
+                    id,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
 
             if (index < 0)
             {
@@ -142,21 +119,14 @@ public sealed class ProductConfigService
                 );
             }
 
-            var updated =
-                MapProduct(
-                    products[index].Id,
-                    input
+            var updated = MapProduct(
+                products[index].Id,
+                input
             );
 
+            products[index] = updated;
 
-            products[index] =
-                updated;
-
-
-            await SaveAsync(
-                products
-            );
-
+            await SaveAsync(products);
 
             return updated;
         }
@@ -167,19 +137,13 @@ public sealed class ProductConfigService
     }
 
 
-    // ========================================================
+    // ============================================================
     // Delete
-    // ========================================================
+    // ============================================================
 
     public async Task DeleteAsync(string id)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ArgumentException(
-                "Product ID is required."
-            );
-        }
-
+        RequireId(id);
 
         await _writeLock.WaitAsync();
 
@@ -188,12 +152,11 @@ public sealed class ProductConfigService
             var products = await GetAllAsync();
 
             var removed = products.RemoveAll(
-                product =>
-                    string.Equals(
-                        product.Id,
-                        id,
-                        StringComparison.OrdinalIgnoreCase
-                    )
+                product => string.Equals(
+                    product.Id,
+                    id,
+                    StringComparison.OrdinalIgnoreCase
+                )
             );
 
             if (removed == 0)
@@ -212,9 +175,9 @@ public sealed class ProductConfigService
     }
 
 
-    // ========================================================
-    // Save atomically
-    // ========================================================
+    // ============================================================
+    // Save
+    // ============================================================
 
     private async Task SaveAsync(List<ProductConfig> products)
     {
@@ -244,9 +207,6 @@ public sealed class ProductConfigService
                 new UTF8Encoding(false)
             );
 
-            // Temp file and target are in the same directory,
-            // so the final replacement avoids exposing a
-            // partially written products.json.
             File.Move(
                 tempFile,
                 _productsFile,
@@ -263,222 +223,101 @@ public sealed class ProductConfigService
     }
 
 
-    // ========================================================
+    // ============================================================
     // Validation
-    // ========================================================
+    // ============================================================
 
-    private static void Validate(
-        ProductConfigInput input
-    )
+    private static void Validate(ProductConfigInput input)
     {
-        if (
-            string.IsNullOrWhiteSpace(
-                input.Name
-            )
-        )
+        if (string.IsNullOrWhiteSpace(input.Name))
         {
             throw new ArgumentException(
                 "Product name is required."
             );
         }
 
-
-        if (
-            input.Sources is null ||
-            input.Sources.Count == 0
-        )
+        if (input.Sources is null || input.Sources.Count == 0)
         {
             throw new ArgumentException(
                 "At least one store source is required."
             );
         }
 
+        RequirePositive(
+            input.TargetPrice,
+            "Target price"
+        );
 
-        if (
-            !double.IsFinite(
-                input.TargetPrice
-            ) ||
-            input.TargetPrice <= 0
-        )
+        if (input.TargetUnitPrice is not null)
         {
-            throw new ArgumentException(
-                "Target price must be greater than 0."
+            RequirePositive(
+                input.TargetUnitPrice.Value,
+                "Target unit price"
             );
         }
 
-
-        if (
-            input.TargetUnitPrice is not null &&
-            (
-                !double.IsFinite(
-                    input.TargetUnitPrice.Value
-                ) ||
-                input.TargetUnitPrice <= 0
-            )
-        )
+        if (input.ComparisonQuantity is not null)
         {
-            throw new ArgumentException(
-                "Target unit price must be greater than 0."
+            RequirePositive(
+                input.ComparisonQuantity.Value,
+                "Comparison quantity"
             );
         }
 
-
-        if (
-            string.IsNullOrWhiteSpace(
-                input.Currency
-            )
-        )
+        if (string.IsNullOrWhiteSpace(input.Currency))
         {
             throw new ArgumentException(
                 "Currency is required."
             );
         }
 
+        var urls = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase
+        );
 
-        var urls =
-            new HashSet<string>(
-                StringComparer.OrdinalIgnoreCase
-            );
+        var hasUnitQuantity = false;
 
-
-        var hasUnitQuantity =
-            false;
-
-
-        for (
-            var index = 0;
-            index < input.Sources.Count;
-            index++
-        )
+        for (var index = 0; index < input.Sources.Count; index++)
         {
-            var source =
-                input.Sources[index];
+            var source = input.Sources[index];
+            var number = index + 1;
 
-            var number =
-                index + 1;
-
-
-            // Store
-
-            if (
-                string.IsNullOrWhiteSpace(
-                    source.Store
-                )
-            )
+            if (string.IsNullOrWhiteSpace(source.Store))
             {
                 throw new ArgumentException(
                     $"Store {number}: name is required."
                 );
             }
 
+            ValidateUrl(
+                source.Url,
+                number,
+                urls
+            );
 
-            // URL
-
-            if (
-                string.IsNullOrWhiteSpace(
-                    source.Url
-                )
-            )
+            if (source.UnitQuantity is not null)
             {
-                throw new ArgumentException(
-                    $"Store {number}: URL is required."
+                hasUnitQuantity = true;
+
+                RequirePositive(
+                    source.UnitQuantity.Value,
+                    $"Store {number}: unit quantity"
                 );
             }
 
-
-            if (
-                !Uri.TryCreate(
-                    source.Url,
-                    UriKind.Absolute,
-                    out var uri
-                ) ||
-                (
-                    uri.Scheme !=
-                        Uri.UriSchemeHttp &&
-                    uri.Scheme !=
-                        Uri.UriSchemeHttps
-                )
-            )
+            if (source.ManualPrice is not null)
             {
-                throw new ArgumentException(
-                    $"Store {number}: URL must use http:// or https://."
+                RequirePositive(
+                    source.ManualPrice.Value,
+                    $"Store {number}: manual price"
                 );
             }
-
-
-            // Duplicate URL
-
-            if (
-                !urls.Add(
-                    source.Url.Trim()
-                )
-            )
-            {
-                throw new ArgumentException(
-                    "Store URLs must be unique."
-                );
-            }
-
-
-            // Unit quantity
-
-            if (
-                source.UnitQuantity is not null
-            )
-            {
-                hasUnitQuantity =
-                    true;
-
-
-                if (
-                    !double.IsFinite(
-                        source.UnitQuantity.Value
-                    ) ||
-                    source.UnitQuantity <= 0
-                )
-                {
-                    throw new ArgumentException(
-                        $"Store {number}: unit quantity must be greater than 0."
-                    );
-                }
-            }
-
-
-            // Manual price
-
-            if (
-                source.ManualPrice is not null &&
-                (
-                    !double.IsFinite(
-                        source.ManualPrice.Value
-                    ) ||
-                    source.ManualPrice <= 0
-                )
-            )
-            {
-                throw new ArgumentException(
-                    $"Store {number}: manual price must be greater than 0."
-                );
-            }
-
-
-            // Effective scraper state:
-            //
-            // Product ON + Source ON
-            // = scrape
-            //
-            // anything else
-            // = manual
 
             var shouldScrape =
                 input.ScrapingEnabled &&
                 source.ScrapingEnabled;
 
-
-            if (
-                !shouldScrape &&
-                source.ManualPrice is null
-            )
+            if (!shouldScrape && source.ManualPrice is null)
             {
                 throw new ArgumentException(
                     $"Store {number}: manual price is required when scraping is disabled."
@@ -486,80 +325,112 @@ public sealed class ProductConfigService
             }
         }
 
+        var needsUnit =
+            hasUnitQuantity ||
+            input.TargetUnitPrice is not null ||
+            input.ComparisonQuantity is not null;
 
-        // Unit required when unit tracking is used.
-
-        if (
-            (
-                hasUnitQuantity ||
-                input.TargetUnitPrice is not null
-            ) &&
-            string.IsNullOrWhiteSpace(
-                input.Unit
-            )
-        )
+        if (needsUnit && string.IsNullOrWhiteSpace(input.Unit))
         {
             throw new ArgumentException(
-                "Unit is required when unit price tracking is enabled."
-            );
-        }
-
-        // Comparison quantity must be greater than 0 if provided.
-        if (
-            input.ComparisonQuantity is not null &&
-            (
-                !double.IsFinite(
-                    input.ComparisonQuantity.Value
-                ) ||
-                input.ComparisonQuantity.Value <= 0
-            )
-        )
-        {
-            throw new ArgumentException(
-                "Comparison quantity must be greater than 0."
-            );
-        }
-
-        // Comparison 
-        if (
-            input.ComparisonQuantity is not null &&
-            string.IsNullOrWhiteSpace(
-                input.Unit
-            )
-        )
-        {
-            throw new ArgumentException(
-                "Unit is required when comparison quantity is set."
+                "Unit is required when comparison or unit price tracking is enabled."
             );
         }
     }
 
 
-    // ========================================================
-    // Random ID Generator
-    // ========================================================
+    private static void ValidateUrl(
+        string url,
+        int number,
+        HashSet<string> urls
+    )
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new ArgumentException(
+                $"Store {number}: URL is required."
+            );
+        }
 
-    private static string GenerateId(IEnumerable<ProductConfig> products)
+        var trimmed = url.Trim();
+
+        if (
+            !Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp &&
+             uri.Scheme != Uri.UriSchemeHttps)
+        )
+        {
+            throw new ArgumentException(
+                $"Store {number}: URL must use http:// or https://."
+            );
+        }
+
+        if (!urls.Add(trimmed))
+        {
+            throw new ArgumentException(
+                "Store URLs must be unique."
+            );
+        }
+    }
+
+
+    private static void RequirePositive(
+        double value,
+        string label
+    )
+    {
+        if (!double.IsFinite(value) || value <= 0)
+        {
+            throw new ArgumentException(
+                $"{label} must be greater than 0."
+            );
+        }
+    }
+
+
+    private static void RequireId(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            throw new ArgumentException(
+                "Product ID is required."
+            );
+        }
+    }
+
+
+    // ============================================================
+    // ID
+    // ============================================================
+
+    private static string GenerateId(
+        IEnumerable<ProductConfig> products
+    )
     {
         string id;
 
         do
         {
-            id = Guid.NewGuid().ToString("N")[..16];
+            id = Guid.NewGuid()
+                .ToString("N")[..16];
         }
         while (
             products.Any(
-                product =>
-                    string.Equals(
-                        product.Id,
-                        id,
-                        StringComparison.OrdinalIgnoreCase
-                    )
+                product => string.Equals(
+                    product.Id,
+                    id,
+                    StringComparison.OrdinalIgnoreCase
+                )
             )
         );
 
         return id;
     }
+
+
+    // ============================================================
+    // Mapping
+    // ============================================================
 
     private static ProductConfig MapProduct(
         string id,
@@ -569,56 +440,37 @@ public sealed class ProductConfigService
         return new ProductConfig
         {
             Id = id,
-
             Name = input.Name.Trim(),
-
             ScrapingEnabled = input.ScrapingEnabled,
-
-            ComparisonQuantity =
-                input.ComparisonQuantity,
+            ComparisonQuantity = input.ComparisonQuantity,
 
             Sources = input.Sources
                 .Select(source => new ProductSource
                 {
                     Store = source.Store.Trim(),
-
                     Url = source.Url.Trim(),
-
-                    ScrapingEnabled =
-                        source.ScrapingEnabled,
-
-                    ManualPrice =
-                        source.ManualPrice,
-
-                    UnitQuantity =
-                        source.UnitQuantity,
-
-                    Note =
-                        string.IsNullOrWhiteSpace(
-                            source.Note
-                        )
-                            ? null
-                            : source.Note.Trim(),
+                    ScrapingEnabled = source.ScrapingEnabled,
+                    ManualPrice = source.ManualPrice,
+                    UnitQuantity = source.UnitQuantity,
+                    Note = Clean(source.Note),
                 })
                 .ToList(),
 
-            TargetPrice =
-                input.TargetPrice,
+            TargetPrice = input.TargetPrice,
+            TargetUnitPrice = input.TargetUnitPrice,
+            Unit = Clean(input.Unit),
 
-            TargetUnitPrice =
-                input.TargetUnitPrice,
-
-            Unit =
-                string.IsNullOrWhiteSpace(
-                    input.Unit
-                )
-                    ? null
-                    : input.Unit.Trim(),
-
-            Currency =
-                input.Currency
-                    .Trim()
-                    .ToUpperInvariant(),
+            Currency = input.Currency
+                .Trim()
+                .ToUpperInvariant(),
         };
+    }
+
+
+    private static string? Clean(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 }

@@ -106,19 +106,6 @@ export function AppHeader({
 
           <NavButton
             active={
-              view === "products"
-            }
-            onClick={() =>
-              onNavigate(
-                "products",
-              )
-            }
-          >
-            Products
-          </NavButton>
-
-          <NavButton
-            active={
               view === "automation"
             }
             onClick={() =>

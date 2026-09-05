@@ -685,8 +685,8 @@ function ToggleCard({
         p-4
         transition-colors
         hover:bg-muted/40
-        has-[:disabled]:cursor-not-allowed
-        has-[:disabled]:opacity-60
+        has-disabled:cursor-not-allowed
+        has-disabled:opacity-60
       "
     >
       <div

@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 
-from pricewatch.models import ScrapeResult
+from .models import ScrapeResult
 
 
 def sanitize_filename(

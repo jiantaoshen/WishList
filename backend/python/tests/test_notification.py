@@ -1,16 +1,16 @@
-from pricewatch.models import (
+from backend.python.pricewatch.models import (
     ScrapeError,
     ScrapeResult,
 )
 
-from pricewatch.notifications import (
+from backend.python.pricewatch.notifications import (
     get_default_state,
     handle_product_notification,
     handle_run_notification,
     mark_notification_events_sent,
 )
 
-from pricewatch.run import RunMetadata
+from backend.python.pricewatch.run import RunMetadata
 
 from datetime import datetime
 

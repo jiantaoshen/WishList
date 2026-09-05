@@ -1,11 +1,6 @@
-import {
-  useMemo,
-  useState,
-} from "react";
+import { useMemo, useState } from "react";
 
-import type {
-  Product,
-} from "@/types/product";
+import type { Product } from "@/types/product";
 
 
 export type ProductFilter =
@@ -13,7 +8,6 @@ export type ProductFilter =
   | "belowTarget"
   | "unitBelowTarget"
   | "priceDrops";
-
 
 export type ProductSort =
   | "name"
@@ -27,436 +21,128 @@ export type ProductSort =
 const PRODUCTS_PER_PAGE = 12;
 
 
-export function useProductList(
-  products: Product[],
-) {
+export function useProductList(products: Product[]) {
+  const [searchQuery, setSearchQueryState] = useState("");
+  const [filter, setFilterState] = useState<ProductFilter>("all");
+  const [sort, setSortState] = useState<ProductSort>("name");
+  const [page, setPage] = useState(1);
 
-  const [
-    searchQuery,
-    setSearchQueryState,
-  ] = useState("");
 
+  const visibleProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
 
-  const [
-    filter,
-    setFilterState,
-  ] = useState<ProductFilter>(
-    "all"
-  );
+    return products
+      .filter(product => matchesSearch(product, query) && matchesFilter(product, filter))
+      .sort((a, b) => compareProducts(a, b, sort));
+  }, [products, searchQuery, filter, sort]);
 
 
-  const [
-    sort,
-    setSortState,
-  ] = useState<ProductSort>(
-    "name"
-  );
+  const totalPages = Math.max(1, Math.ceil(visibleProducts.length / PRODUCTS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const pageEnd = Math.min(pageStart + PRODUCTS_PER_PAGE, visibleProducts.length);
+  const paginatedProducts = visibleProducts.slice(pageStart, pageEnd);
 
 
-  const [
-    page,
-    setPage,
-  ] = useState(1);
-
-
-  // =========================================================
-  // Filter + Sort
-  // =========================================================
-
-  const visibleProducts =
-    useMemo(() => {
-
-      const query =
-        searchQuery
-          .trim()
-          .toLowerCase();
-
-
-      const filtered =
-        products.filter(
-          (product) => {
-
-            // ===============================================
-            // Search
-            // ===============================================
-
-            const matchesName =
-              product.name
-                .toLowerCase()
-                .includes(query);
-
-
-            const matchesTotalStore =
-              product.store
-                ?.toLowerCase()
-                .includes(query)
-              ?? false;
-
-
-            const matchesUnitStore =
-              product.unit_store
-                ?.toLowerCase()
-                .includes(query)
-              ?? false;
-
-
-            const matchesOffers =
-              (
-                product.offers ?? []
-              ).some(
-                (offer) => {
-
-                  const matchesStore =
-                    offer.store
-                      ?.toLowerCase()
-                      .includes(query)
-                    ?? false;
-
-
-                  const matchesNote =
-                    offer.note
-                      ?.toLowerCase()
-                      .includes(query)
-                    ?? false;
-
-
-                  return (
-                    matchesStore ||
-                    matchesNote
-                  );
-                }
-              );
-
-
-            const matchesSearch =
-              query.length === 0 ||
-              matchesName ||
-              matchesTotalStore ||
-              matchesUnitStore ||
-              matchesOffers;
-
-
-            if (!matchesSearch) {
-              return false;
-            }
-
-
-            // ===============================================
-            // Filter
-            // ===============================================
-
-            if (
-              filter ===
-              "belowTarget"
-            ) {
-              return (
-                product.below_target ===
-                true
-              );
-            }
-
-
-            if (
-              filter ===
-              "unitBelowTarget"
-            ) {
-              return (
-                product.unit_below_target ===
-                true
-              );
-            }
-
-
-            if (
-              filter ===
-              "priceDrops"
-            ) {
-
-              const current =
-                product.current_price;
-
-
-              const previous =
-                product.previous_price;
-
-
-              return (
-                current !== null &&
-                previous !== null &&
-                current < previous
-              );
-            }
-
-
-            return true;
-          }
-        );
-
-
-      // =====================================================
-      // Sort
-      // =====================================================
-
-      return [...filtered].sort(
-        (a, b) => {
-
-          // Name
-
-          if (sort === "name") {
-
-            return a.name.localeCompare(
-              b.name
-            );
-          }
-
-
-          // Total low -> high
-
-          if (
-            sort === "priceLow"
-          ) {
-
-            return (
-              (
-                a.current_price ??
-                Number.POSITIVE_INFINITY
-              )
-              -
-              (
-                b.current_price ??
-                Number.POSITIVE_INFINITY
-              )
-            );
-          }
-
-
-          // Total high -> low
-
-          if (
-            sort === "priceHigh"
-          ) {
-
-            return (
-              (
-                b.current_price ??
-                Number.NEGATIVE_INFINITY
-              )
-              -
-              (
-                a.current_price ??
-                Number.NEGATIVE_INFINITY
-              )
-            );
-          }
-
-
-          // Unit low -> high
-
-          if (
-            sort ===
-            "unitPriceLow"
-          ) {
-
-            return (
-              (
-                a.current_unit_price ??
-                Number.POSITIVE_INFINITY
-              )
-              -
-              (
-                b.current_unit_price ??
-                Number.POSITIVE_INFINITY
-              )
-            );
-          }
-
-
-          // Unit high -> low
-
-          if (
-            sort ===
-            "unitPriceHigh"
-          ) {
-
-            return (
-              (
-                b.current_unit_price ??
-                Number.NEGATIVE_INFINITY
-              )
-              -
-              (
-                a.current_unit_price ??
-                Number.NEGATIVE_INFINITY
-              )
-            );
-          }
-
-
-          // Biggest total-price drop
-
-          if (
-            sort ===
-            "biggestDrop"
-          ) {
-
-            const aDrop =
-              getPriceDrop(a);
-
-
-            const bDrop =
-              getPriceDrop(b);
-
-
-            return (
-              bDrop - aDrop
-            );
-          }
-
-
-          return 0;
-        }
-      );
-
-    }, [
-      products,
-      searchQuery,
-      filter,
-      sort,
-    ]);
-
-
-  // =========================================================
-  // Pagination
-  // =========================================================
-
-  const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        visibleProducts.length /
-        PRODUCTS_PER_PAGE
-      )
-    );
-
-
-  const currentPage =
-    Math.min(
-      page,
-      totalPages
-    );
-
-
-  const pageStart =
-    (
-      currentPage - 1
-    ) * PRODUCTS_PER_PAGE;
-
-
-  const pageEnd =
-    Math.min(
-      pageStart +
-        PRODUCTS_PER_PAGE,
-      visibleProducts.length
-    );
-
-
-  const paginatedProducts =
-    visibleProducts.slice(
-      pageStart,
-      pageEnd
-    );
-
-
-  // =========================================================
-  // State setters
-  //
-  // Reset page when filtering changes.
-  // =========================================================
-
-  function setSearchQuery(
-    value: string,
-  ) {
-
+  function setSearchQuery(value: string) {
     setSearchQueryState(value);
     setPage(1);
   }
 
-
-  function setFilter(
-    value: ProductFilter,
-  ) {
-
+  function setFilter(value: ProductFilter) {
     setFilterState(value);
     setPage(1);
   }
 
-
-  function setSort(
-    value: ProductSort,
-  ) {
-
+  function setSort(value: ProductSort) {
     setSortState(value);
     setPage(1);
   }
 
 
   return {
-
-    products:
-      paginatedProducts,
-
+    products: paginatedProducts,
     searchQuery,
     setSearchQuery,
-
     filter,
     setFilter,
-
     sort,
     setSort,
-
-    page:
-      currentPage,
-
+    page: currentPage,
     setPage,
-
     totalPages,
-
-    totalResults:
-      visibleProducts.length,
-
+    totalResults: visibleProducts.length,
     pageStart,
-
     pageEnd,
   };
 }
 
 
-// =============================================================
-// Helpers
-// =============================================================
+function matchesSearch(product: Product, query: string): boolean {
+  if (!query) return true;
 
-function getPriceDrop(
-  product: Product,
-): number {
+  return (
+    product.name.toLowerCase().includes(query) ||
+    product.store?.toLowerCase().includes(query) === true ||
+    product.unit_store?.toLowerCase().includes(query) === true ||
+    (product.offers ?? []).some(
+      offer =>
+        offer.store?.toLowerCase().includes(query) === true ||
+        offer.note?.toLowerCase().includes(query) === true,
+    )
+  );
+}
 
-  const current =
-    product.current_price;
 
+function matchesFilter(product: Product, filter: ProductFilter): boolean {
+  if (filter === "belowTarget") return product.below_target === true;
+  if (filter === "unitBelowTarget") return product.unit_below_target === true;
 
-  const previous =
-    product.previous_price;
-
-
-  if (
-    current === null ||
-    previous === null
-  ) {
-    return 0;
+  if (filter === "priceDrops") {
+    return (
+      product.current_price !== null &&
+      product.previous_price !== null &&
+      product.current_price < product.previous_price
+    );
   }
 
+  return true;
+}
 
-  return Math.max(
-    previous - current,
-    0
-  );
+
+function compareProducts(a: Product, b: Product, sort: ProductSort): number {
+  if (sort === "name") return a.name.localeCompare(b.name);
+
+  if (sort === "priceLow") {
+    return nullablePrice(a.current_price, Infinity) - nullablePrice(b.current_price, Infinity);
+  }
+
+  if (sort === "priceHigh") {
+    return nullablePrice(b.current_price, -Infinity) - nullablePrice(a.current_price, -Infinity);
+  }
+
+  if (sort === "unitPriceLow") {
+    return nullablePrice(a.current_unit_price, Infinity) - nullablePrice(b.current_unit_price, Infinity);
+  }
+
+  if (sort === "unitPriceHigh") {
+    return nullablePrice(b.current_unit_price, -Infinity) - nullablePrice(a.current_unit_price, -Infinity);
+  }
+
+  return getPriceDrop(b) - getPriceDrop(a);
+}
+
+
+function nullablePrice(value: number | null | undefined, fallback: number): number {
+  return value ?? fallback;
+}
+
+
+function getPriceDrop(product: Product): number {
+  const current = product.current_price;
+  const previous = product.previous_price;
+
+  if (current === null || previous === null) return 0;
+
+  return Math.max(previous - current, 0);
 }

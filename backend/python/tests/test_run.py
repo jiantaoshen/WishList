@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from pricewatch.run import (
+from backend.python.pricewatch.run import (
     build_run_metadata,
 )
 

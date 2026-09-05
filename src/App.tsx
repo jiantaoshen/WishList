@@ -1,74 +1,33 @@
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
-import {
-  AutomationSettings,
-} from "@/components/AutomationSettings";
+import { AutomationSettings } from "@/components/AutomationSettings";
+import { EmailSettings } from "@/components/EmailSettings";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { ProductDetail } from "@/components/products/ProductDetail";
+import { ProductList } from "@/components/products/ProductList";
+import { ScraperDetail } from "@/components/scraper/ScraperDetail";
 
-import {
-  EmailSettings,
-} from "@/components/EmailSettings";
-
-import {
-  AppHeader,
-} from "@/components/layout/AppHeader";
-
-import {
-  ProductDetail,
-} from "@/components/products/ProductDetail";
-
-import {
-  ProductList,
-} from "@/components/products/ProductList";
-
-import {
-  ProductManagement,
-} from "@/components/products/ProductManagement";
-
-import {
-  ScraperDetail,
-} from "@/components/scraper/ScraperDetail";
-
-import {
-  useAppData,
-} from "@/hooks/useAppData";
-
-import type {
-  AppView,
-} from "@/types/app";
-
-import type {
-  Product,
-} from "@/types/product";
-
+import { useAppData } from "@/hooks/useAppData";
+import type { AppView } from "@/types/app";
 
 function App() {
-  const data =
-    useAppData();
+  const data = useAppData();
 
-  const [
-    view,
-    setView,
-  ] = useState<AppView>(
-    "dashboard",
-  );
+  const [view, setView] = useState<AppView>("dashboard");
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
-  const [
-    selectedProduct,
-    setSelectedProduct,
-  ] = useState<Product | null>(
-    null,
-  );
+  const selectedProduct =
+    data.latestData.data.find(product => product.product_id === selectedProductId) ?? null;
 
-
-  function navigate(
-    next: AppView,
-  ) {
-    setSelectedProduct(null);
+  function navigate(next: AppView) {
+    setSelectedProductId(null);
     setView(next);
   }
 
+  function handleBackFromProduct() {
+    setSelectedProductId(null);
+    setView("dashboard");
+  }
 
   if (data.loading) {
     return (
@@ -78,7 +37,6 @@ function App() {
     );
   }
 
-
   if (data.error) {
     return (
       <div className="flex min-h-screen items-center justify-center text-destructive">
@@ -87,87 +45,45 @@ function App() {
     );
   }
 
-
   return (
     <div className="min-h-screen">
       <AppHeader
         view={view}
-        generatedAt={
-          data.latestData.generated_at
-        }
-        latestRun={
-          data.latestRun
-        }
-        onNavigate={
-          navigate
-        }
-        onRefresh={
-          data.refresh
-        }
+        generatedAt={data.latestData.generated_at}
+        latestRun={data.latestRun}
+        onNavigate={navigate}
+        onRefresh={data.refresh}
       />
-
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         {selectedProduct ? (
           <ProductDetail
-            product={
-              selectedProduct
-            }
-            history={
-              data.historyData
-            }
-            onBack={() =>
-              setSelectedProduct(
-                null,
-              )
-            }
+            product={selectedProduct}
+            history={data.historyData}
+            onBack={handleBackFromProduct}
+            onRefresh={data.refresh}
           />
         ) : (
           <>
             {view === "dashboard" && (
               <ProductList
-                data={
-                  data.latestData
-                }
-                history={
-                  data.history
-                }
-                onManageProducts={() =>
-                  navigate(
-                    "products",
-                  )
-                }
-                onSelectProduct={
-                  setSelectedProduct
-                }
+                data={data.latestData}
+                history={data.history}
+                onSelectProduct={product => setSelectedProductId(product.product_id)}
+                onRefresh={data.refresh}
               />
             )}
 
-            {view === "scraper" && (
-              <ScraperDetail
-                run={
-                  data.latestRun
-                }
-              />
-            )}
+            {view === "scraper" && <ScraperDetail run={data.latestRun} />}
 
-            {view === "products" && (
-              <ProductManagement />
-            )}
+            {view === "automation" && <AutomationSettings />}
 
-            {view === "automation" && (
-              <AutomationSettings />
-            )}
-
-            {view === "email" && (
-              <EmailSettings />
-            )}
+            {view === "email" && <EmailSettings />}
           </>
         )}
       </main>
     </div>
   );
 }
-
 
 export default App;

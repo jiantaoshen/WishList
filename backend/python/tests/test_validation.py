@@ -1,4 +1,4 @@
-from pricewatch.validation import (
+from backend.python.pricewatch.validation import (
     PriceValidationStatus,
     validate_price,
 )
