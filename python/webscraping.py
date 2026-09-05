@@ -61,25 +61,141 @@ NOTIFICATION_STATE_FILE = STATE_DIR / "notifications.json"
 
 load_dotenv(ENV_FILE)
 
+
+# ============================================================
+# Scraping mode helpers
+# ============================================================
+def should_scrape_source(
+    product,
+    source,
+) -> bool:
+    return (
+        product.get(
+            "scraping_enabled",
+            True,
+        )
+        and
+        source.get(
+            "scraping_enabled",
+            True,
+        )
+    )
+
+
+async def get_source_price(
+    page,
+    product,
+    source,
+) -> tuple[
+    float | None,
+    str,
+]:
+    """
+    Returns:
+        (price, price_source)
+
+    price_source:
+        "scrape"
+        "manual"
+    """
+
+    should_scrape = (
+        should_scrape_source(
+            product,
+            source,
+        )
+    )
+
+    # ========================================================
+    # Manual
+    # ========================================================
+    if not should_scrape:
+        manual_price = source.get(
+            "manual_price"
+        )
+
+        if manual_price is None:
+            return None, "manual"
+
+        try:
+            price = float(
+                manual_price
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            return None, "manual"
+
+        if price <= 0:
+            return None, "manual"
+
+        return price, "manual"
+
+    # ========================================================
+    # Scrape
+    # ========================================================
+    url = source["url"]
+
+    source_product = {
+        **product,
+        **source,
+        "url": url,
+    }
+
+    await page.goto(
+        url,
+        wait_until="domcontentloaded",
+        timeout=60000,
+    )
+
+    scraper = get_scraper(
+        source_product
+    )
+
+    current_price = None
+
+    for attempt in range(4):
+        current_price = (
+            await scraper.extract_price(
+                page,
+                source_product,
+            )
+        )
+
+        if current_price is not None:
+            break
+
+        if attempt < 3:
+            await page.wait_for_timeout(
+                1000
+            )
+
+    if current_price is None:
+        return None, "scrape"
+
+    return (
+        float(current_price),
+        "scrape",
+    )
+
+
+# ============================================================
+# Product source compatibility
+# ============================================================
 def get_product_sources(product):
-
-    # =========================================================
     # New format
-    # =========================================================
-
     if product.get("sources"):
         return product["sources"]
 
-    # =========================================================
-    # urls compatibility
-    # =========================================================
-
+    # Multiple URL compatibility
     if product.get("urls"):
-
         return [
             {
                 "store": f"Source {index + 1}",
                 "url": url,
+                "scraping_enabled": True,
+                "manual_price": None,
                 "unit_quantity": None,
                 "note": None,
             }
@@ -88,16 +204,14 @@ def get_product_sources(product):
             )
         ]
 
-    # =========================================================
-    # Old url compatibility
-    # =========================================================
-
+    # Old single URL compatibility
     if product.get("url"):
-
         return [
             {
                 "store": "Source",
                 "url": product["url"],
+                "scraping_enabled": True,
+                "manual_price": None,
                 "unit_quantity": None,
                 "note": None,
             }
@@ -105,29 +219,21 @@ def get_product_sources(product):
 
     return []
 
-def get_product_sources(product):
-    """
-    Support:
-    1. New format: sources
-    2. Simple format: urls
-    3. Old format: url
-    """
 
-    if product.get("sources"):
-        return product["sources"]
+def product_uses_scraper(
+    product,
+) -> bool:
+    sources = get_product_sources(
+        product
+    )
 
-    if product.get("urls"):
-        return [
-            {"url": url}
-            for url in product["urls"]
-        ]
-
-    if product.get("url"):
-        return [
-            {"url": product["url"]}
-        ]
-
-    return []
+    return any(
+        should_scrape_source(
+            product,
+            source,
+        )
+        for source in sources
+    )
 
 # ============================================================
 # Check one product
@@ -160,6 +266,48 @@ async def check_product(
 
     unit = product.get("unit")
 
+    # Comparison quantity defines the normalized total-price basis.
+    # Example: comparison_quantity = 2 means every store is compared
+    # as the price for 2 units, regardless of package size.
+    comparison_quantity_raw = product.get(
+        "comparison_quantity"
+    )
+
+    comparison_quantity = None
+
+    if comparison_quantity_raw is not None:
+        try:
+            parsed_comparison_quantity = float(
+                comparison_quantity_raw
+            )
+
+            if parsed_comparison_quantity > 0:
+                comparison_quantity = (
+                    parsed_comparison_quantity
+                )
+            else:
+                raise ValueError(
+                    "comparison_quantity must be greater than 0"
+                )
+
+        except (
+            TypeError,
+            ValueError,
+        ) as error:
+            return ScrapeResult(
+                product_id=product_id,
+                name=name,
+                url="",
+                target_price=target_price,
+                unit=unit,
+                status="failed",
+                currency=currency,
+                error=ScrapeError(
+                    type="INVALID_COMPARISON_QUANTITY",
+                    message=str(error),
+                ),
+            )
+
     target_unit_price_raw = product.get(
         "target_unit_price"
     )
@@ -179,10 +327,26 @@ async def check_product(
 
     print(f"Product: {name}")
 
-    print(
-        f"Target total price: "
-        f"{target_price:.2f} {currency}"
-    )
+    if comparison_quantity is not None:
+        print(
+            f"Comparison quantity: "
+            f"{comparison_quantity:g}"
+            + (
+                f" {unit}"
+                if unit
+                else " units"
+            )
+        )
+
+        print(
+            f"Target comparable total: "
+            f"{target_price:.2f} {currency}"
+        )
+    else:
+        print(
+            f"Target total price: "
+            f"{target_price:.2f} {currency}"
+        )
 
     if target_unit_price is not None:
 
@@ -231,19 +395,16 @@ async def check_product(
 
 
     # ============================================================
-    # Scrape all sources
+    # Check all sources
     # ============================================================
 
     offers = []
-
     errors = []
-
 
     for index, source in enumerate(
         sources,
         start=1,
     ):
-
         url = source["url"]
 
         store = source.get(
@@ -252,11 +413,9 @@ async def check_product(
 
         note = source.get("note")
 
-
         # --------------------------------------------------------
         # Unit quantity
         # --------------------------------------------------------
-
         unit_quantity = None
 
         raw_unit_quantity = source.get(
@@ -264,9 +423,7 @@ async def check_product(
         )
 
         if raw_unit_quantity is not None:
-
             try:
-
                 parsed_quantity = float(
                     raw_unit_quantity
                 )
@@ -282,17 +439,27 @@ async def check_product(
             ):
                 unit_quantity = None
 
+        is_scraping = (
+            should_scrape_source(
+                product,
+                source,
+            )
+        )
 
         print()
-
         print("-" * 70)
-
         print(f"Store: {store}")
-
         print(f"URL: {url}")
+        print(
+            "Mode: "
+            + (
+                "scraper"
+                if is_scraping
+                else "manual"
+            )
+        )
 
         if unit_quantity is not None:
-
             print(
                 f"Unit quantity: "
                 f"{unit_quantity:g}"
@@ -306,75 +473,27 @@ async def check_product(
         if note:
             print(f"Note: {note}")
 
-
-        # ========================================================
-        # Temporary source-specific product
-        # ========================================================
-
-        source_product = {
-            **product,
-            **source,
-            "url": url,
-        }
-
-
         try:
-
-            # ====================================================
-            # Navigate
-            # ====================================================
-
-            await page.goto(
-                url,
-                wait_until="domcontentloaded",
-                timeout=60000,
+            (
+                current_price,
+                price_source,
+            ) = await get_source_price(
+                page,
+                product,
+                source,
             )
-
-
-            # ====================================================
-            # Scraper adapter
-            # ====================================================
-
-            scraper = get_scraper(
-                source_product
-            )
-
-
-            current_price = None
-
-
-            # ====================================================
-            # Extract
-            # ====================================================
-
-            for attempt in range(4):
-
-                current_price = (
-                    await scraper.extract_price(
-                        page,
-                        source_product,
-                    )
-                )
-
-                if current_price is not None:
-                    break
-
-                if attempt < 3:
-
-                    await page.wait_for_timeout(
-                        1000
-                    )
-
 
             # ====================================================
             # No price
             # ====================================================
-
             if current_price is None:
-
                 message = (
                     "Could not extract "
                     "a product price"
+                    if is_scraping
+                    else
+                    "Manual price is missing "
+                    "or invalid"
                 )
 
                 print(
@@ -387,26 +506,36 @@ async def check_product(
 
                 continue
 
-
-            current_price = float(
-                current_price
-            )
-
-
             # ====================================================
             # Unit price
             # ====================================================
-
             unit_price = None
 
             if unit_quantity is not None:
-
                 unit_price = round(
                     current_price /
                     unit_quantity,
                     4,
                 )
 
+            # ====================================================
+            # Comparable total price
+            # ====================================================
+            # Keep the website/package price in `price`.
+            # `comparison_price` is the normalized price used only
+            # when the product has comparison_quantity configured.
+            comparison_price = None
+
+            if (
+                comparison_quantity is not None
+                and
+                unit_price is not None
+            ):
+                comparison_price = round(
+                    unit_price *
+                    comparison_quantity,
+                    2,
+                )
 
             print(
                 f"✅ {store}: "
@@ -414,9 +543,12 @@ async def check_product(
                 f"{currency}"
             )
 
+            print(
+                f"   Source: "
+                f"{price_source}"
+            )
 
             if unit_price is not None:
-
                 print(
                     f"   Unit price: "
                     f"{unit_price:.4f} "
@@ -428,30 +560,57 @@ async def check_product(
                     )
                 )
 
+            if comparison_quantity is not None:
+                if comparison_price is not None:
+                    print(
+                        f"   Price for "
+                        f"{comparison_quantity:g}"
+                        + (
+                            f" {unit}: "
+                            if unit
+                            else " units: "
+                        )
+                        + f"{comparison_price:.2f} "
+                        + f"{currency}"
+                    )
+                else:
+                    print(
+                        "   ⚠️ Not eligible for "
+                        "total-price comparison: "
+                        "unit quantity is missing."
+                    )
 
             # ====================================================
             # Save offer
             # ====================================================
-
             offers.append(
                 {
                     "store": store,
                     "url": url,
+
+                    # Actual website/package price.
                     "price": current_price,
+
+                    "price_source": price_source,
+
                     "unit_quantity": (
                         unit_quantity
                     ),
+
                     "unit_price": unit_price,
+
+                    # Normalized total price.
+                    "comparison_price": (
+                        comparison_price
+                    ),
+
                     "note": note,
                 }
             )
 
-
         except Exception as e:
-
             print(
-                f"❌ {store}: "
-                f"Failed to read page: {e}"
+                f"❌ {store}: {e}"
             )
 
             errors.append(
@@ -504,28 +663,81 @@ async def check_product(
 
 
     # ============================================================
-    # Sort total offers
+    # Cheapest total / comparable total
     # ============================================================
 
-    offers.sort(
-        key=lambda offer:
-            offer["price"]
-    )
+    if comparison_quantity is not None:
+        comparable_offers = [
+            offer
+            for offer in offers
+            if offer["comparison_price"] is not None
+        ]
 
+        # When normalized comparison is enabled, a source without
+        # unit_quantity must never fall back to its raw package price.
+        if not comparable_offers:
+            print()
+            print(
+                "❌ Comparison quantity is enabled, "
+                "but no source has a valid unit quantity."
+            )
 
-    # ============================================================
-    # Cheapest total price
-    # ============================================================
+            fallback_url = (
+                offers[0]["url"]
+                if offers
+                else sources[0]["url"]
+            )
 
-    best_offer = offers[0]
+            return ScrapeResult(
+                product_id=product_id,
+                name=name,
+                url=fallback_url,
+                target_price=target_price,
+                target_unit_price=target_unit_price,
+                unit=unit,
+                status="failed",
+                currency=currency,
+                offers=offers,
+                error=ScrapeError(
+                    type="NO_COMPARABLE_OFFERS",
+                    message=(
+                        "Comparison quantity is enabled, "
+                        "but no source has a valid unit quantity."
+                    ),
+                ),
+            )
 
-    current_price = float(
-        best_offer["price"]
-    )
+        best_offer = min(
+            comparable_offers,
+            key=lambda offer:
+                offer["comparison_price"],
+        )
+
+        # IMPORTANT:
+        # Product-level current_price, target checks and history now use
+        # the normalized comparable total, not the raw package price.
+        current_price = float(
+            best_offer["comparison_price"]
+        )
+
+    else:
+        best_offer = min(
+            offers,
+            key=lambda offer:
+                offer["price"],
+        )
+
+        current_price = float(
+            best_offer["price"]
+        )
 
     url = best_offer["url"]
-
     best_store = best_offer["store"]
+
+    # Actual package price remains available inside the winning offer.
+    best_actual_price = float(
+        best_offer["price"]
+    )
 
 
     # ============================================================
@@ -579,16 +791,40 @@ async def check_product(
 
     print("=" * 70)
 
-    print(
-        f"🏆 Cheapest total: "
-        f"{best_store}"
-    )
+    if comparison_quantity is not None:
+        print(
+            f"🏆 Cheapest comparable total: "
+            f"{best_store}"
+        )
 
-    print(
-        f"🏆 Total price: "
-        f"{current_price:.2f} "
-        f"{currency}"
-    )
+        print(
+            f"🏆 Actual package price: "
+            f"{best_actual_price:.2f} "
+            f"{currency}"
+        )
+
+        print(
+            f"🏆 Price for "
+            f"{comparison_quantity:g}"
+            + (
+                f" {unit}: "
+                if unit
+                else " units: "
+            )
+            + f"{current_price:.2f} "
+            + f"{currency}"
+        )
+    else:
+        print(
+            f"🏆 Cheapest total: "
+            f"{best_store}"
+        )
+
+        print(
+            f"🏆 Total price: "
+            f"{current_price:.2f} "
+            f"{currency}"
+        )
 
 
     if current_unit_price is not None:
@@ -866,16 +1102,22 @@ async def check_product(
     # Print total status
     # ============================================================
 
+    total_label = (
+        "comparable total"
+        if comparison_quantity is not None
+        else "total"
+    )
+
     if below_target:
 
         print(
-            f"🟢 Current total: "
+            f"🟢 Current {total_label}: "
             f"{current_price:.2f} "
             f"{currency}"
         )
 
         print(
-            f"🎯 Below total target: "
+            f"🎯 Below {total_label} target: "
             f"{abs(difference):.2f} "
             f"{currency}"
         )
@@ -883,13 +1125,14 @@ async def check_product(
     else:
 
         print(
-            f"⚪ Current total: "
+            f"⚪ Current {total_label}: "
             f"{current_price:.2f} "
             f"{currency}"
         )
 
         print(
-            f"Still needs to drop by: "
+            f"{total_label.capitalize()} needs "
+            f"to drop by: "
             f"{difference:.2f} "
             f"{currency}"
         )
@@ -1171,7 +1414,13 @@ async def main():
                     event
                 )
 
-            await asyncio.sleep(2)
+            # Only pause after products that actually use scraping.
+            if product_uses_scraper(
+                product
+            ):
+                await asyncio.sleep(
+                    2
+                )
 
         # Stop tracing and build run metadata
         finished_at = datetime.now(stockholm)

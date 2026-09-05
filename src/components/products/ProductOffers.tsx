@@ -134,6 +134,12 @@ export function ProductOffers({
                         {offer.store}
                       </p>
 
+                      {offer.price_source === "manual" && (
+                        <Badge variant="outline">
+                          Manual
+                        </Badge>
+                      )}
+
                       {lowestTotal && (
                         <Badge>
                           Lowest total

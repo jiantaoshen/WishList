@@ -4,7 +4,10 @@ export interface ProductOffer {
 
   price: number;
 
+  price_source?: "scrape" | "manual";
+
   unit_quantity?: number | null;
+
   unit_price?: number | null;
 
   note?: string | null;
