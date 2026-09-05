@@ -1,12 +1,8 @@
 import { apiJson, jsonRequest } from "@/services/api";
 
 
-export const API_BASE_URL = "";
+const PRODUCTS_URL = "/api/product-config";
 
-
-// =============================================================
-// Types
-// =============================================================
 
 export interface ProductSource {
   store: string;
@@ -16,7 +12,6 @@ export interface ProductSource {
   unit_quantity: number | null;
   note: string | null;
 }
-
 
 export interface ProductConfig {
   id: string;
@@ -31,7 +26,6 @@ export interface ProductConfig {
   url?: string;
 }
 
-
 export interface ProductSourceInput {
   store: string;
   url: string;
@@ -40,7 +34,6 @@ export interface ProductSourceInput {
   unit_quantity: number | null;
   note: string | null;
 }
-
 
 export interface ProductConfigInput {
   name: string;
@@ -54,53 +47,71 @@ export interface ProductConfigInput {
 }
 
 
-// =============================================================
-// API
-// =============================================================
-
-const PRODUCTS_URL = `${API_BASE_URL}/api/products`;
-
 export async function fetchProductConfigs(): Promise<ProductConfig[]> {
-  const result = await apiJson<unknown>(PRODUCTS_URL);
+  const products = await apiJson<ProductConfig[]>(PRODUCTS_URL, {
+    cache: "no-store",
+  });
 
-  if (Array.isArray(result)) return result as ProductConfig[];
-
-  if (result && typeof result === "object") {
-    const data = result as Record<string, unknown>;
-
-    if (Array.isArray(data.products)) return data.products as ProductConfig[];
-    if (Array.isArray(data.data)) return data.data as ProductConfig[];
+  if (!Array.isArray(products)) {
+    throw new Error("Invalid product configuration response.");
   }
 
-  throw new Error("Invalid products response: expected an array.");
+  return products.map(normalizeProduct);
 }
 
-export function createProductConfig(
+
+export async function createProductConfig(
   input: ProductConfigInput,
 ): Promise<ProductConfig> {
-  return apiJson<ProductConfig>(
+  const product = await apiJson<ProductConfig>(
     PRODUCTS_URL,
     jsonRequest("POST", input),
   );
+
+  return normalizeProduct(product);
 }
 
 
-export function updateProductConfig(
+export async function updateProductConfig(
   id: string,
   input: ProductConfigInput,
 ): Promise<ProductConfig> {
-  return apiJson<ProductConfig>(
+  const product = await apiJson<ProductConfig>(
     `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
     jsonRequest("PUT", input),
   );
+
+  return normalizeProduct(product);
 }
 
 
 export async function deleteProductConfig(id: string): Promise<void> {
   await apiJson<void>(
     `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
-    {
-      method: "DELETE",
-    },
+    { method: "DELETE" },
   );
+}
+
+
+function normalizeProduct(product: ProductConfig): ProductConfig {
+  const raw = product as ProductConfig & {
+    Id?: string;
+    product_id?: string;
+    productId?: string;
+  };
+
+  const id =
+    product.id ??
+    raw.Id ??
+    raw.product_id ??
+    raw.productId;
+
+  if (!id) {
+    throw new Error(`Product "${product.name}" has no ID.`);
+  }
+
+  return {
+    ...product,
+    id,
+  };
 }

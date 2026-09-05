@@ -11,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
 import { Separator } from "@/components/ui/separator";
 
 import { useProductList } from "@/hooks/useProductList";
@@ -42,14 +41,16 @@ export function ProductList({
       <Card className="border-dashed">
         <CardHeader className="text-center">
           <CardTitle>No products tracked yet</CardTitle>
-
           <CardDescription>
             Add a product to start tracking prices.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="flex justify-center">
-          <ProductFormDialog mode="create" onSaved={onRefresh} />
+          <ProductFormDialog
+            mode="create"
+            onSaved={onRefresh}
+          />
         </CardContent>
       </Card>
     );
@@ -59,7 +60,6 @@ export function ProductList({
   return (
     <div className="space-y-8">
       <ProductSummary products={data.data} />
-
 
       <section className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -102,7 +102,10 @@ export function ProductList({
               : "No matching products"}
           </p>
 
-          <ProductFormDialog mode="create" onSaved={onRefresh} />
+          <ProductFormDialog
+            mode="create"
+            onSaved={onRefresh}
+          />
         </div>
 
 
@@ -119,7 +122,9 @@ export function ProductList({
         ) : (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="font-medium">No products found</p>
+              <p className="font-medium">
+                No products found
+              </p>
 
               <p className="mt-1 text-sm text-muted-foreground">
                 Try changing your search or filters.
