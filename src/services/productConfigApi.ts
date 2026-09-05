@@ -1,14 +1,18 @@
+import { apiJson, jsonRequest } from "@/services/api";
+
+
 export const API_BASE_URL = "";
+
+
+// =============================================================
+// Types
+// =============================================================
 
 export interface ProductSource {
   store: string;
   url: string;
-
-  // Optional only for old JSON/API compatibility.
   scraping_enabled?: boolean;
-
   manual_price?: number | null;
-
   unit_quantity: number | null;
   note: string | null;
 }
@@ -17,24 +21,13 @@ export interface ProductSource {
 export interface ProductConfig {
   id: string;
   name: string;
-
   scraping_enabled?: boolean;
-
-  comparison_quantity?:
-    number | null;
-
+  comparison_quantity?: number | null;
   sources: ProductSource[];
-
   target_price: number;
-
-  target_unit_price:
-    number | null;
-
+  target_unit_price: number | null;
   unit: string | null;
-
   currency: string;
-
-  // Old single-URL product compatibility.
   url?: string;
 }
 
@@ -42,11 +35,8 @@ export interface ProductConfig {
 export interface ProductSourceInput {
   store: string;
   url: string;
-
   scraping_enabled: boolean;
-
   manual_price: number | null;
-
   unit_quantity: number | null;
   note: string | null;
 }
@@ -54,161 +44,63 @@ export interface ProductSourceInput {
 
 export interface ProductConfigInput {
   name: string;
-
   scraping_enabled: boolean;
-
-  comparison_quantity:
-    number | null;
-
-  sources:
-    ProductSourceInput[];
-
+  comparison_quantity: number | null;
+  sources: ProductSourceInput[];
   target_price: number;
-
-  target_unit_price:
-    number | null;
-
+  target_unit_price: number | null;
   unit: string | null;
-
   currency: string;
 }
 
+
 // =============================================================
-// Fetch
+// API
 // =============================================================
 
-export async function fetchProductConfigs():
-Promise<ProductConfig[]> {
+const PRODUCTS_URL = `${API_BASE_URL}/api/products`;
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config`,
-    {
-      cache: "no-store",
-    },
-  );
+export async function fetchProductConfigs(): Promise<ProductConfig[]> {
+  const result = await apiJson<unknown>(PRODUCTS_URL);
 
+  if (Array.isArray(result)) return result as ProductConfig[];
 
-  if (!response.ok) {
+  if (result && typeof result === "object") {
+    const data = result as Record<string, unknown>;
 
-    throw new Error(
-      `Failed to load product configuration: ${response.status}`,
-    );
-
+    if (Array.isArray(data.products)) return data.products as ProductConfig[];
+    if (Array.isArray(data.data)) return data.data as ProductConfig[];
   }
 
-
-  return response.json();
+  throw new Error("Invalid products response: expected an array.");
 }
 
-
-// =============================================================
-// Create
-// =============================================================
-
-export async function createProductConfig(
-  product: ProductConfigInput,
+export function createProductConfig(
+  input: ProductConfigInput,
 ): Promise<ProductConfig> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config`,
-    {
-      method: "POST",
-
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-
-      body: JSON.stringify(
-        product
-      ),
-    },
+  return apiJson<ProductConfig>(
+    PRODUCTS_URL,
+    jsonRequest("POST", input),
   );
-
-
-  if (!response.ok) {
-
-    const text =
-      await response.text();
-
-
-    throw new Error(
-      text ||
-      `Failed to create product: ${response.status}`,
-    );
-
-  }
-
-
-  return response.json();
 }
 
 
-// =============================================================
-// Update
-// =============================================================
-
-export async function updateProductConfig(
+export function updateProductConfig(
   id: string,
-  product: ProductConfigInput,
+  input: ProductConfigInput,
 ): Promise<ProductConfig> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
-    {
-      method: "PUT",
-
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-
-      body: JSON.stringify(
-        product
-      ),
-    },
+  return apiJson<ProductConfig>(
+    `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
+    jsonRequest("PUT", input),
   );
-
-
-  if (!response.ok) {
-
-    const text =
-      await response.text();
-
-
-    throw new Error(
-      text ||
-      `Failed to update product: ${response.status}`,
-    );
-
-  }
-
-
-  return response.json();
 }
 
 
-// =============================================================
-// Delete
-// =============================================================
-
-export async function deleteProductConfig(
-  id: string,
-): Promise<void> {
-
-  const response = await fetch(
-    `${API_BASE_URL}/api/product-config/${encodeURIComponent(id)}`,
+export async function deleteProductConfig(id: string): Promise<void> {
+  await apiJson<void>(
+    `${PRODUCTS_URL}/${encodeURIComponent(id)}`,
     {
       method: "DELETE",
     },
   );
-
-
-  if (!response.ok) {
-
-    throw new Error(
-      `Failed to delete product: ${response.status}`,
-    );
-
-  }
 }

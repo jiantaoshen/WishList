@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 
-import type {
-  DataFile,
-  Product,
-} from "@/types/product";
+import type { DataFile, Product } from "@/types/product";
 
 
 export interface ProductHistoryPoint {
@@ -12,184 +9,93 @@ export interface ProductHistoryPoint {
   unitPrice: number | null;
 }
 
-
 export interface PriceChartPoint {
   period: string;
   value: number;
 }
 
 
-export function useProductHistory(
-  product: Product,
-  history: DataFile[],
-) {
-  const historyPoints =
-    useMemo<ProductHistoryPoint[]>(() => {
-      const points: ProductHistoryPoint[] = [];
-
-      const sorted =
-        [...history].sort(
-          (a, b) =>
-            a.period.localeCompare(
-              b.period,
-            ),
+export function useProductHistory(product: Product, history: DataFile[]) {
+  return useMemo(() => {
+    const historyPoints: ProductHistoryPoint[] = [...history]
+      .sort((a, b) => a.period.localeCompare(b.period))
+      .flatMap(period => {
+        const item = period.data.find(
+          candidate =>
+            candidate.product_id === product.product_id ||
+            candidate.name === product.name,
         );
 
-      for (const period of sorted) {
-        const item =
-          period.data.find(
-            (candidate) =>
-              candidate.product_id ===
-              product.product_id,
-          );
+        if (!item) return [];
 
-        if (!item) {
-          continue;
-        }
+        const price = item.current_price ?? null;
+        const unitPrice = item.current_unit_price ?? null;
 
-        const price =
-          item.current_price ?? null;
+        if (price === null && unitPrice === null) return [];
 
-        const unitPrice =
-          item.current_unit_price ??
-          null;
-
-        if (
-          price === null &&
-          unitPrice === null
-        ) {
-          continue;
-        }
-
-        points.push({
+        return [{
           period: period.period,
           price,
           unitPrice,
-        });
-      }
+        }];
+      });
 
-      return points;
-    }, [
-      history,
-      product.product_id,
-    ]);
-
-
-  const totalChartData =
-    useMemo<PriceChartPoint[]>(() => {
-      const points: PriceChartPoint[] = [];
-
-      for (
-        const item
-        of historyPoints
-      ) {
-        if (item.price === null) {
-          continue;
-        }
-
-        points.push({
-          period: item.period,
-          value: item.price,
-        });
-      }
-
-      return points;
-    }, [historyPoints]);
-
-
-  const unitChartData =
-    useMemo<PriceChartPoint[]>(() => {
-      const points: PriceChartPoint[] = [];
-
-      for (
-        const item
-        of historyPoints
-      ) {
-        if (
-          item.unitPrice === null
-        ) {
-          continue;
-        }
-
-        points.push({
-          period: item.period,
-          value: item.unitPrice,
-        });
-      }
-
-      return points;
-    }, [historyPoints]);
-
-
-  const totalPrices =
-    totalChartData.map(
-      (item) => item.value,
+    const totalChartData: PriceChartPoint[] = historyPoints.flatMap(item =>
+      item.price === null
+        ? []
+        : [{ period: item.period, value: item.price }],
     );
 
-
-  const unitPrices =
-    unitChartData.map(
-      (item) => item.value,
+    const unitChartData: PriceChartPoint[] = historyPoints.flatMap(item =>
+      item.unitPrice === null
+        ? []
+        : [{ period: item.period, value: item.unitPrice }],
     );
 
+    const totalPrices = totalChartData.map(item => item.value);
+    const unitPrices = unitChartData.map(item => item.value);
 
-  return {
-    historyPoints,
-    totalChartData,
-    unitChartData,
+    return {
+      historyPoints,
+      totalChartData,
+      unitChartData,
 
-    totalLow:
-      totalPrices.length > 0
+      totalLow: totalPrices.length
         ? Math.min(...totalPrices)
         : product.current_price,
 
-    totalHigh:
-      totalPrices.length > 0
+      totalHigh: totalPrices.length
         ? Math.max(...totalPrices)
         : product.current_price,
 
-    totalAverage:
-      average(totalPrices) ??
-      product.current_price,
+      totalAverage:
+        average(totalPrices) ??
+        product.current_price,
 
-    unitLow:
-      unitPrices.length > 0
+      unitLow: unitPrices.length
         ? Math.min(...unitPrices)
-        : (
-            product.current_unit_price ??
-            null
-          ),
+        : product.current_unit_price ?? null,
 
-    unitHigh:
-      unitPrices.length > 0
+      unitHigh: unitPrices.length
         ? Math.max(...unitPrices)
-        : (
-            product.current_unit_price ??
-            null
-          ),
+        : product.current_unit_price ?? null,
 
-    unitAverage:
-      average(unitPrices) ??
-      (
+      unitAverage:
+        average(unitPrices) ??
         product.current_unit_price ??
-        null
-      ),
-  };
+        null,
+    };
+  }, [
+    history,
+    product.product_id,
+    product.name,
+    product.current_price,
+    product.current_unit_price,
+  ]);
 }
 
 
-function average(
-  values: number[],
-): number | null {
-  if (values.length === 0) {
-    return null;
-  }
-
-  return (
-    values.reduce(
-      (sum, value) =>
-        sum + value,
-      0,
-    ) / values.length
-  );
+function average(values: number[]): number | null {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }

@@ -1,5 +1,11 @@
 import { ExternalLink, Gift } from "lucide-react";
 
+import {
+  formatPrice,
+  formatQuantity,
+  numbersEqual,
+} from "@/utils/price";
+
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,7 +152,7 @@ export function ProductOffers({ product }: ProductOffersProps) {
                       />
 
                       {hasComparison && (
-                        <div className="min-w-[130px]">
+                        <div className="min-w-32.5">
                           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                             Comparable total
                           </p>
@@ -217,7 +223,7 @@ function PriceColumn({
   decimals?: number;
 }) {
   return (
-    <div className="min-w-[110px]">
+    <div className="min-w-27.5">
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
@@ -234,24 +240,4 @@ function PriceColumn({
       )}
     </div>
   );
-}
-
-
-function numbersEqual(a: number, b: number): boolean {
-  return Math.abs(a - b) < 0.0001;
-}
-
-
-function formatPrice(value: number, maximumDecimals: number): string {
-  return value.toLocaleString("sv-SE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: maximumDecimals,
-  });
-}
-
-
-function formatQuantity(value: number): string {
-  return value.toLocaleString("sv-SE", {
-    maximumFractionDigits: 4,
-  });
 }
