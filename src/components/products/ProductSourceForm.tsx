@@ -1,5 +1,4 @@
 import {
-  GripVertical,
   Trash2,
 } from "lucide-react";
 
@@ -37,11 +36,15 @@ interface ProductSourceFormProps {
 
   index: number;
 
+  currency: string;
+
+  productScrapingEnabled:
+    boolean;
+
   canRemove: boolean;
 
   onChange: <
-    K extends
-      keyof ProductSourceFormState,
+    K extends keyof ProductSourceFormState,
   >(
     field: K,
     value:
@@ -52,15 +55,26 @@ interface ProductSourceFormProps {
 }
 
 
+// =============================================================
+// Product Source
+// =============================================================
+
 export function ProductSourceForm({
   source,
   index,
+  currency,
+  productScrapingEnabled,
   canRemove,
   onChange,
   onRemove,
 }: ProductSourceFormProps) {
   const prefix =
     `source-${index}`;
+
+
+  const manualMode =
+    !productScrapingEnabled ||
+    !source.scrapingEnabled;
 
 
   return (
@@ -70,6 +84,8 @@ export function ProductSourceForm({
         shadow-none
       "
     >
+      {/* Header */}
+
       <CardHeader
         className="
           flex-row
@@ -78,22 +94,21 @@ export function ProductSourceForm({
           border-b
         "
       >
-        <div
-          className="
-            flex items-center
-            gap-2
-          "
-        >
-          <GripVertical
-            className="
-              size-4
-              text-muted-foreground
-            "
-          />
-
+        <div>
           <CardTitle className="text-sm">
             Store {index + 1}
           </CardTitle>
+
+          <p
+            className="
+              mt-1 text-xs
+              text-muted-foreground
+            "
+          >
+            {manualMode
+              ? "Manual price"
+              : "Automatic scraping"}
+          </p>
         </div>
 
 
@@ -103,7 +118,9 @@ export function ProductSourceForm({
           size="icon"
           disabled={!canRemove}
           onClick={onRemove}
-          aria-label={`Remove store ${index + 1}`}
+          aria-label={
+            `Remove store ${index + 1}`
+          }
         >
           <Trash2 />
         </Button>
@@ -121,7 +138,9 @@ export function ProductSourceForm({
 
         <div className="space-y-2">
           <Label
-            htmlFor={`${prefix}-store`}
+            htmlFor={
+              `${prefix}-store`
+            }
           >
             Store
           </Label>
@@ -144,13 +163,17 @@ export function ProductSourceForm({
 
         <div className="space-y-2">
           <Label
-            htmlFor={`${prefix}-quantity`}
+            htmlFor={
+              `${prefix}-quantity`
+            }
           >
             Unit quantity
           </Label>
 
           <Input
-            id={`${prefix}-quantity`}
+            id={
+              `${prefix}-quantity`
+            }
             type="number"
             min="0"
             step="any"
@@ -166,13 +189,8 @@ export function ProductSourceForm({
             }
           />
 
-          <p
-            className="
-              text-xs
-              text-muted-foreground
-            "
-          >
-            Example: 24 bottles,
+          <p className="text-xs text-muted-foreground">
+            Example: 24 pcs,
             0.5 L or 2 kg.
           </p>
         </div>
@@ -187,7 +205,9 @@ export function ProductSourceForm({
           "
         >
           <Label
-            htmlFor={`${prefix}-url`}
+            htmlFor={
+              `${prefix}-url`
+            }
           >
             Product URL
           </Label>
@@ -204,7 +224,132 @@ export function ProductSourceForm({
               )
             }
           />
+
+          {manualMode && (
+            <p className="text-xs text-muted-foreground">
+              The URL is kept so you can
+              open the store manually.
+              Python will not visit it.
+            </p>
+          )}
         </div>
+
+
+        {/* Scraping */}
+
+        <label
+          className="
+            flex cursor-pointer
+            items-center
+            justify-between
+            gap-4
+            rounded-xl
+            border
+            p-4
+            lg:col-span-2
+          "
+        >
+          <div>
+            <p className="text-sm font-medium">
+              Scrape this store
+            </p>
+
+            <p
+              className="
+                mt-1 text-xs
+                text-muted-foreground
+              "
+            >
+              {productScrapingEnabled
+                ? "Automatically read the price from this website."
+                : "Product scraping is disabled. Manual price will be used."}
+            </p>
+          </div>
+
+
+          <input
+            type="checkbox"
+            checked={
+              source.scrapingEnabled
+            }
+            disabled={
+              !productScrapingEnabled
+            }
+            onChange={event =>
+              onChange(
+                "scrapingEnabled",
+                event.target.checked,
+              )
+            }
+            className="
+              size-4
+              shrink-0
+              accent-primary
+            "
+          />
+        </label>
+
+
+        {/* Manual Price */}
+
+        {manualMode && (
+          <div
+            className="
+              space-y-2
+              lg:col-span-2
+            "
+          >
+            <Label
+              htmlFor={
+                `${prefix}-manual-price`
+              }
+            >
+              Manual price
+            </Label>
+
+            <div className="relative">
+              <Input
+                id={
+                  `${prefix}-manual-price`
+                }
+                type="number"
+                min="0"
+                step="any"
+                value={
+                  source.manualPrice
+                }
+                placeholder="269.00"
+                className="pr-16"
+                onChange={event =>
+                  onChange(
+                    "manualPrice",
+                    event.target.value,
+                  )
+                }
+              />
+
+              <span
+                className="
+                  pointer-events-none
+                  absolute
+                  right-3 top-1/2
+                  -translate-y-1/2
+                  text-xs
+                  text-muted-foreground
+                "
+              >
+                {currency}
+              </span>
+            </div>
+
+
+            <p className="text-xs text-muted-foreground">
+              This value will be used
+              instead of running the
+              scraper for this store.
+            </p>
+          </div>
+        )}
 
 
         {/* Note */}
@@ -216,7 +361,9 @@ export function ProductSourceForm({
           "
         >
           <Label
-            htmlFor={`${prefix}-note`}
+            htmlFor={
+              `${prefix}-note`
+            }
           >
             Note / extras
           </Label>

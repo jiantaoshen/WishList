@@ -77,43 +77,9 @@ public sealed class ProductConfigService
         {
             var products = await GetAllAsync();
 
-            var product = new ProductConfig(
-
+            var product = MapProduct(
                 GenerateId(products),
-
-                input.Name.Trim(),
-
-                input.Sources
-                    .Select(source => new ProductSource(
-
-                        source.Store.Trim(),
-
-                        source.Url.Trim(),
-
-                        source.UnitQuantity,
-
-                        string.IsNullOrWhiteSpace(
-                            source.Note
-                        )
-                            ? null
-                            : source.Note.Trim()
-
-                    ))
-                    .ToList(),
-
-                input.TargetPrice,
-
-                input.TargetUnitPrice,
-
-                string.IsNullOrWhiteSpace(
-                    input.Unit
-                )
-                    ? null
-                    : input.Unit.Trim(),
-
-                input.Currency
-                    .Trim()
-                    .ToUpperInvariant()
+                input
             );
 
             products.Add(product);
@@ -176,48 +142,11 @@ public sealed class ProductConfigService
                 );
             }
 
-
             var updated =
-                new ProductConfig(
-
+                MapProduct(
                     products[index].Id,
-
-                    input.Name.Trim(),
-
-                    input.Sources
-                        .Select(
-                            source =>
-                                new ProductSource(
-
-                                    source.Store.Trim(),
-
-                                    source.Url.Trim(),
-
-                                    source.UnitQuantity,
-
-                                    string.IsNullOrWhiteSpace(
-                                        source.Note
-                                    )
-                                        ? null
-                                        : source.Note.Trim()
-                                )
-                        )
-                        .ToList(),
-
-                    input.TargetPrice,
-
-                    input.TargetUnitPrice,
-
-                    string.IsNullOrWhiteSpace(
-                        input.Unit
-                    )
-                        ? null
-                        : input.Unit.Trim(),
-
-                    input.Currency
-                        .Trim()
-                        .ToUpperInvariant()
-                );
+                    input
+            );
 
 
             products[index] =
@@ -342,10 +271,6 @@ public sealed class ProductConfigService
         ProductConfigInput input
     )
     {
-        // ========================================================
-        // Name
-        // ========================================================
-
         if (
             string.IsNullOrWhiteSpace(
                 input.Name
@@ -358,199 +283,45 @@ public sealed class ProductConfigService
         }
 
 
-        // ========================================================
-        // Sources
-        // ========================================================
-
         if (
             input.Sources is null ||
             input.Sources.Count == 0
         )
         {
             throw new ArgumentException(
-                "At least one product source is required."
+                "At least one store source is required."
             );
         }
 
-
-        foreach (
-            var source
-            in input.Sources
-        )
-        {
-            // Store
-
-            if (
-                string.IsNullOrWhiteSpace(
-                    source.Store
-                )
-            )
-            {
-                throw new ArgumentException(
-                    "Store name is required for every source."
-                );
-            }
-
-
-            // URL
-
-            if (
-                !Uri.TryCreate(
-                    source.Url,
-                    UriKind.Absolute,
-                    out var url
-                )
-                ||
-                (
-                    url.Scheme !=
-                        Uri.UriSchemeHttp
-                    &&
-                    url.Scheme !=
-                        Uri.UriSchemeHttps
-                )
-            )
-            {
-                throw new ArgumentException(
-                    $"A valid HTTP or HTTPS URL is required for store \"{source.Store}\"."
-                );
-            }
-
-
-            // Unit quantity
-
-            if (
-                source.UnitQuantity is not null
-                &&
-                (
-                    double.IsNaN(
-                        source.UnitQuantity.Value
-                    )
-                    ||
-                    double.IsInfinity(
-                        source.UnitQuantity.Value
-                    )
-                    ||
-                    source.UnitQuantity.Value <= 0
-                )
-            )
-            {
-                throw new ArgumentException(
-                    $"Unit quantity for \"{source.Store}\" must be greater than zero."
-                );
-            }
-        }
-
-
-        // ========================================================
-        // Duplicate URLs
-        // ========================================================
-
-        var duplicateUrl =
-            input.Sources
-
-                .GroupBy(
-                    source =>
-                        source.Url.Trim(),
-
-                    StringComparer
-                        .OrdinalIgnoreCase
-                )
-
-                .FirstOrDefault(
-                    group =>
-                        group.Count() > 1
-                );
-
-
-        if (duplicateUrl is not null)
-        {
-            throw new ArgumentException(
-                $"Duplicate product URL: {duplicateUrl.Key}"
-            );
-        }
-
-
-        // ========================================================
-        // Total target
-        // ========================================================
 
         if (
-            double.IsNaN(
+            !double.IsFinite(
                 input.TargetPrice
-            )
-            ||
-            double.IsInfinity(
-                input.TargetPrice
-            )
-            ||
+            ) ||
             input.TargetPrice <= 0
         )
         {
             throw new ArgumentException(
-                "Target price must be greater than zero."
+                "Target price must be greater than 0."
             );
         }
 
 
-        // ========================================================
-        // Unit target
-        // ========================================================
-
         if (
-            input.TargetUnitPrice
-            is not null
-            &&
+            input.TargetUnitPrice is not null &&
             (
-                double.IsNaN(
+                !double.IsFinite(
                     input.TargetUnitPrice.Value
-                )
-                ||
-                double.IsInfinity(
-                    input.TargetUnitPrice.Value
-                )
-                ||
-                input.TargetUnitPrice.Value <= 0
+                ) ||
+                input.TargetUnitPrice <= 0
             )
         )
         {
             throw new ArgumentException(
-                "Target unit price must be greater than zero."
+                "Target unit price must be greater than 0."
             );
         }
 
-
-        // ========================================================
-        // Unit
-        // ========================================================
-
-        var hasUnitTracking =
-            input.TargetUnitPrice
-                is not null
-            ||
-            input.Sources.Any(
-                source =>
-                    source.UnitQuantity
-                        is not null
-            );
-
-
-        if (
-            hasUnitTracking
-            &&
-            string.IsNullOrWhiteSpace(
-                input.Unit
-            )
-        )
-        {
-            throw new ArgumentException(
-                "Unit is required when unit-price tracking is enabled."
-            );
-        }
-
-
-        // ========================================================
-        // Currency
-        // ========================================================
 
         if (
             string.IsNullOrWhiteSpace(
@@ -560,6 +331,205 @@ public sealed class ProductConfigService
         {
             throw new ArgumentException(
                 "Currency is required."
+            );
+        }
+
+
+        var urls =
+            new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase
+            );
+
+
+        var hasUnitQuantity =
+            false;
+
+
+        for (
+            var index = 0;
+            index < input.Sources.Count;
+            index++
+        )
+        {
+            var source =
+                input.Sources[index];
+
+            var number =
+                index + 1;
+
+
+            // Store
+
+            if (
+                string.IsNullOrWhiteSpace(
+                    source.Store
+                )
+            )
+            {
+                throw new ArgumentException(
+                    $"Store {number}: name is required."
+                );
+            }
+
+
+            // URL
+
+            if (
+                string.IsNullOrWhiteSpace(
+                    source.Url
+                )
+            )
+            {
+                throw new ArgumentException(
+                    $"Store {number}: URL is required."
+                );
+            }
+
+
+            if (
+                !Uri.TryCreate(
+                    source.Url,
+                    UriKind.Absolute,
+                    out var uri
+                ) ||
+                (
+                    uri.Scheme !=
+                        Uri.UriSchemeHttp &&
+                    uri.Scheme !=
+                        Uri.UriSchemeHttps
+                )
+            )
+            {
+                throw new ArgumentException(
+                    $"Store {number}: URL must use http:// or https://."
+                );
+            }
+
+
+            // Duplicate URL
+
+            if (
+                !urls.Add(
+                    source.Url.Trim()
+                )
+            )
+            {
+                throw new ArgumentException(
+                    "Store URLs must be unique."
+                );
+            }
+
+
+            // Unit quantity
+
+            if (
+                source.UnitQuantity is not null
+            )
+            {
+                hasUnitQuantity =
+                    true;
+
+
+                if (
+                    !double.IsFinite(
+                        source.UnitQuantity.Value
+                    ) ||
+                    source.UnitQuantity <= 0
+                )
+                {
+                    throw new ArgumentException(
+                        $"Store {number}: unit quantity must be greater than 0."
+                    );
+                }
+            }
+
+
+            // Manual price
+
+            if (
+                source.ManualPrice is not null &&
+                (
+                    !double.IsFinite(
+                        source.ManualPrice.Value
+                    ) ||
+                    source.ManualPrice <= 0
+                )
+            )
+            {
+                throw new ArgumentException(
+                    $"Store {number}: manual price must be greater than 0."
+                );
+            }
+
+
+            // Effective scraper state:
+            //
+            // Product ON + Source ON
+            // = scrape
+            //
+            // anything else
+            // = manual
+
+            var shouldScrape =
+                input.ScrapingEnabled &&
+                source.ScrapingEnabled;
+
+
+            if (
+                !shouldScrape &&
+                source.ManualPrice is null
+            )
+            {
+                throw new ArgumentException(
+                    $"Store {number}: manual price is required when scraping is disabled."
+                );
+            }
+        }
+
+
+        // Unit required when unit tracking is used.
+
+        if (
+            (
+                hasUnitQuantity ||
+                input.TargetUnitPrice is not null
+            ) &&
+            string.IsNullOrWhiteSpace(
+                input.Unit
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Unit is required when unit price tracking is enabled."
+            );
+        }
+
+        // Comparison quantity must be greater than 0 if provided.
+        if (
+            input.ComparisonQuantity is not null &&
+            (
+                !double.IsFinite(
+                    input.ComparisonQuantity.Value
+                ) ||
+                input.ComparisonQuantity.Value <= 0
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Comparison quantity must be greater than 0."
+            );
+        }
+
+        // Comparison 
+        if (
+            input.ComparisonQuantity is not null &&
+            string.IsNullOrWhiteSpace(
+                input.Unit
+            )
+        )
+        {
+            throw new ArgumentException(
+                "Unit is required when comparison quantity is set."
             );
         }
     }
@@ -589,5 +559,66 @@ public sealed class ProductConfigService
         );
 
         return id;
+    }
+
+    private static ProductConfig MapProduct(
+        string id,
+        ProductConfigInput input
+    )
+    {
+        return new ProductConfig
+        {
+            Id = id,
+
+            Name = input.Name.Trim(),
+
+            ScrapingEnabled = input.ScrapingEnabled,
+
+            ComparisonQuantity =
+                input.ComparisonQuantity,
+
+            Sources = input.Sources
+                .Select(source => new ProductSource
+                {
+                    Store = source.Store.Trim(),
+
+                    Url = source.Url.Trim(),
+
+                    ScrapingEnabled =
+                        source.ScrapingEnabled,
+
+                    ManualPrice =
+                        source.ManualPrice,
+
+                    UnitQuantity =
+                        source.UnitQuantity,
+
+                    Note =
+                        string.IsNullOrWhiteSpace(
+                            source.Note
+                        )
+                            ? null
+                            : source.Note.Trim(),
+                })
+                .ToList(),
+
+            TargetPrice =
+                input.TargetPrice,
+
+            TargetUnitPrice =
+                input.TargetUnitPrice,
+
+            Unit =
+                string.IsNullOrWhiteSpace(
+                    input.Unit
+                )
+                    ? null
+                    : input.Unit.Trim(),
+
+            Currency =
+                input.Currency
+                    .Trim()
+                    .ToUpperInvariant(),
+        };
     }
 }

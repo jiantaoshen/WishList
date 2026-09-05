@@ -7,42 +7,56 @@ namespace PriceWatch.Api.DTOs;
 // Product Source
 // =============================================================
 
-public sealed record ProductSourceInput(
+public sealed class ProductSourceInput
+{
+    [JsonPropertyName("store")]
+    public string Store { get; init; } = "";
 
-    [property: JsonPropertyName("store")]
-    string Store,
+    [JsonPropertyName("url")]
+    public string Url { get; init; } = "";
 
-    [property: JsonPropertyName("url")]
-    string Url,
+    // Old clients that do not send this field
+    // should continue scraping.
+    [JsonPropertyName("scraping_enabled")]
+    public bool ScrapingEnabled { get; init; } = true;
 
-    [property: JsonPropertyName("unit_quantity")]
-    double? UnitQuantity,
+    [JsonPropertyName("manual_price")]
+    public double? ManualPrice { get; init; }
 
-    [property: JsonPropertyName("note")]
-    string? Note
-);
+    [JsonPropertyName("unit_quantity")]
+    public double? UnitQuantity { get; init; }
+
+    [JsonPropertyName("note")]
+    public string? Note { get; init; }
+}
 
 // =============================================================
 // Product Config Input
 // =============================================================
 
-public sealed record ProductConfigInput(
+public sealed class ProductConfigInput
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
 
-    [property: JsonPropertyName("name")]
-    string Name,
+    [JsonPropertyName("scraping_enabled")]
+    public bool ScrapingEnabled { get; init; } = true;
 
-    [property: JsonPropertyName("sources")]
-    List<ProductSourceInput> Sources,
+    [JsonPropertyName("comparison_quantity")]
+    public double? ComparisonQuantity { get; init; }
 
-    [property: JsonPropertyName("target_price")]
-    double TargetPrice,
+    [JsonPropertyName("sources")]
+    public List<ProductSourceInput> Sources { get; init; } = [];
 
-    [property: JsonPropertyName("target_unit_price")]
-    double? TargetUnitPrice,
+    [JsonPropertyName("target_price")]
+    public double TargetPrice { get; init; }
 
-    [property: JsonPropertyName("unit")]
-    string? Unit,
+    [JsonPropertyName("target_unit_price")]
+    public double? TargetUnitPrice { get; init; }
 
-    [property: JsonPropertyName("currency")]
-    string Currency
-);
+    [JsonPropertyName("unit")]
+    public string? Unit { get; init; }
+
+    [JsonPropertyName("currency")]
+    public string Currency { get; init; } = "SEK";
+}

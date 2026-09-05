@@ -1,16 +1,15 @@
 export const API_BASE_URL = "";
 
-
-// =============================================================
-// Types
-// =============================================================
-
 export interface ProductSource {
   store: string;
   url: string;
 
-  unit_quantity: number | null;
+  // Optional only for old JSON/API compatibility.
+  scraping_enabled?: boolean;
 
+  manual_price?: number | null;
+
+  unit_quantity: number | null;
   note: string | null;
 }
 
@@ -19,26 +18,60 @@ export interface ProductConfig {
   id: string;
   name: string;
 
+  scraping_enabled?: boolean;
+
+  comparison_quantity?:
+    number | null;
+
   sources: ProductSource[];
 
   target_price: number;
 
-  target_unit_price: number | null;
+  target_unit_price:
+    number | null;
 
   unit: string | null;
 
   currency: string;
 
-  // Old JSON compatibility
+  // Old single-URL product compatibility.
   url?: string;
 }
 
 
-export type ProductConfigInput = Omit<
-  ProductConfig,
-  "id" | "url"
->;
+export interface ProductSourceInput {
+  store: string;
+  url: string;
 
+  scraping_enabled: boolean;
+
+  manual_price: number | null;
+
+  unit_quantity: number | null;
+  note: string | null;
+}
+
+
+export interface ProductConfigInput {
+  name: string;
+
+  scraping_enabled: boolean;
+
+  comparison_quantity:
+    number | null;
+
+  sources:
+    ProductSourceInput[];
+
+  target_price: number;
+
+  target_unit_price:
+    number | null;
+
+  unit: string | null;
+
+  currency: string;
+}
 
 // =============================================================
 // Fetch

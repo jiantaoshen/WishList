@@ -6,12 +6,21 @@ import type {
   ProductConfig,
   ProductConfigInput,
   ProductSource,
+  ProductSourceInput,
 } from "@/services/productConfigApi";
 
+
+// =============================================================
+// State
+// =============================================================
 
 export interface ProductSourceFormState {
   store: string;
   url: string;
+
+  scrapingEnabled: boolean;
+  manualPrice: string;
+
   unitQuantity: string;
   note: string;
 }
@@ -19,19 +28,37 @@ export interface ProductSourceFormState {
 
 export interface ProductFormState {
   name: string;
+
+  scrapingEnabled: boolean;
+
+  comparisonQuantity: string;
+
   targetPrice: string;
+
   targetUnitPrice: string;
+
   unit: string;
+
   currency: string;
-  sources: ProductSourceFormState[];
+
+  sources:
+    ProductSourceFormState[];
 }
 
+
+// =============================================================
+// Empty
+// =============================================================
 
 export function createEmptySource():
   ProductSourceFormState {
   return {
     store: "",
     url: "",
+
+    scrapingEnabled: true,
+    manualPrice: "",
+
     unitQuantity: "",
     note: "",
   };
@@ -42,16 +69,27 @@ export function createEmptyProductForm():
   ProductFormState {
   return {
     name: "",
+
+    scrapingEnabled: true,
+
+    comparisonQuantity: "",
+
     targetPrice: "",
     targetUnitPrice: "",
+
     unit: "",
     currency: "SEK",
+
     sources: [
       createEmptySource(),
     ],
   };
 }
 
+
+// =============================================================
+// Hook
+// =============================================================
 
 export function useProductForm() {
   const [
@@ -62,12 +100,20 @@ export function useProductForm() {
   );
 
 
+  // ===========================================================
+  // Reset
+  // ===========================================================
+
   function reset() {
     setForm(
       createEmptyProductForm(),
     );
   }
 
+
+  // ===========================================================
+  // Load
+  // ===========================================================
 
   function loadProduct(
     product: ProductConfig,
@@ -76,7 +122,7 @@ export function useProductForm() {
       product.sources ?? [];
 
 
-    // Old JSON compatibility.
+    // Old single URL compatibility.
     if (
       sources.length === 0 &&
       product.url
@@ -84,8 +130,15 @@ export function useProductForm() {
       sources = [
         {
           store: "Source",
+
           url: product.url,
+
+          scraping_enabled: true,
+
+          manual_price: null,
+
           unit_quantity: null,
+
           note: null,
         },
       ];
@@ -93,7 +146,25 @@ export function useProductForm() {
 
 
     setForm({
-      name: product.name,
+      name:
+        product.name,
+
+      // Old products default to scraping.
+      scrapingEnabled:
+        product.scraping_enabled ??
+        true,
+
+      // Old products may not have
+      // comparison_quantity.
+      comparisonQuantity:
+        product.comparison_quantity !==
+          null &&
+        product.comparison_quantity !==
+          undefined
+          ? String(
+              product.comparison_quantity,
+            )
+          : "",
 
       targetPrice:
         String(
@@ -102,7 +173,9 @@ export function useProductForm() {
 
       targetUnitPrice:
         product.target_unit_price !==
-        null
+          null &&
+        product.target_unit_price !==
+          undefined
           ? String(
               product.target_unit_price,
             )
@@ -126,6 +199,10 @@ export function useProductForm() {
   }
 
 
+  // ===========================================================
+  // Product Fields
+  // ===========================================================
+
   function setField<
     K extends keyof Omit<
       ProductFormState,
@@ -133,7 +210,8 @@ export function useProductForm() {
     >,
   >(
     field: K,
-    value: ProductFormState[K],
+    value:
+      ProductFormState[K],
   ) {
     setForm(
       current => ({
@@ -144,10 +222,15 @@ export function useProductForm() {
   }
 
 
+  // ===========================================================
+  // Sources
+  // ===========================================================
+
   function addSource() {
     setForm(
       current => ({
         ...current,
+
         sources: [
           ...current.sources,
           createEmptySource(),
@@ -171,6 +254,7 @@ export function useProductForm() {
 
         return {
           ...current,
+
           sources:
             current.sources.filter(
               (_, sourceIndex) =>
@@ -212,10 +296,15 @@ export function useProductForm() {
   }
 
 
+  // ===========================================================
+  // Build API Input
+  // ===========================================================
+
   function buildInput():
     ProductConfigInput {
     const name =
       form.name.trim();
+
 
     if (!name) {
       throw new Error(
@@ -223,6 +312,21 @@ export function useProductForm() {
       );
     }
 
+
+    // ---------------------------------------------------------
+    // Comparison quantity
+    // ---------------------------------------------------------
+
+    const comparisonQuantity =
+      parseOptionalPositiveNumber(
+        form.comparisonQuantity,
+        "Comparison quantity",
+      );
+
+
+    // ---------------------------------------------------------
+    // Target prices
+    // ---------------------------------------------------------
 
     const targetPrice =
       parseRequiredPositiveNumber(
@@ -238,6 +342,10 @@ export function useProductForm() {
       );
 
 
+    // ---------------------------------------------------------
+    // Sources
+    // ---------------------------------------------------------
+
     const sources =
       form.sources.map(
         (
@@ -247,9 +355,35 @@ export function useProductForm() {
           buildSource(
             source,
             index,
+            form.scrapingEnabled,
           ),
       );
 
+
+    // ---------------------------------------------------------
+    // Duplicate URLs
+    // ---------------------------------------------------------
+
+    const urls =
+      sources.map(
+        source =>
+          source.url.toLowerCase(),
+      );
+
+
+    if (
+      new Set(urls).size !==
+      urls.length
+    ) {
+      throw new Error(
+        "Store URLs must be unique.",
+      );
+    }
+
+
+    // ---------------------------------------------------------
+    // Unit
+    // ---------------------------------------------------------
 
     const hasUnitQuantity =
       sources.some(
@@ -263,6 +397,19 @@ export function useProductForm() {
       form.unit.trim();
 
 
+    // Comparison quantity has a meaning
+    // only when a unit is defined.
+    if (
+      comparisonQuantity !== null &&
+      !unit
+    ) {
+      throw new Error(
+        "Unit is required when comparison quantity is set.",
+      );
+    }
+
+
+    // Existing unit price tracking rule.
     if (
       (
         hasUnitQuantity ||
@@ -275,6 +422,10 @@ export function useProductForm() {
       );
     }
 
+
+    // ---------------------------------------------------------
+    // Currency
+    // ---------------------------------------------------------
 
     const currency =
       form.currency
@@ -289,15 +440,30 @@ export function useProductForm() {
     }
 
 
+    // ---------------------------------------------------------
+    // API input
+    // ---------------------------------------------------------
+
     return {
       name,
+
+      scraping_enabled:
+        form.scrapingEnabled,
+
+      comparison_quantity:
+        comparisonQuantity,
+
       sources,
+
       target_price:
         targetPrice,
+
       target_unit_price:
         targetUnitPrice,
+
       unit:
         unit || null,
+
       currency,
     };
   }
@@ -320,16 +486,39 @@ export function useProductForm() {
 }
 
 
+// =============================================================
+// Source → Form
+// =============================================================
+
 function sourceToForm(
   source: ProductSource,
 ): ProductSourceFormState {
   return {
-    store: source.store,
-    url: source.url,
+    store:
+      source.store,
+
+    url:
+      source.url,
+
+    scrapingEnabled:
+      source.scraping_enabled ??
+      true,
+
+    manualPrice:
+      source.manual_price !==
+        null &&
+      source.manual_price !==
+        undefined
+        ? String(
+            source.manual_price,
+          )
+        : "",
 
     unitQuantity:
       source.unit_quantity !==
-      null
+        null &&
+      source.unit_quantity !==
+        undefined
         ? String(
             source.unit_quantity,
           )
@@ -341,28 +530,46 @@ function sourceToForm(
 }
 
 
+// =============================================================
+// Build Source
+// =============================================================
+
 function buildSource(
   source:
     ProductSourceFormState,
+
   index: number,
-): ProductSource {
+
+  productScrapingEnabled: boolean,
+): ProductSourceInput {
   const store =
     source.store.trim();
 
   const url =
     source.url.trim();
 
+  const number =
+    index + 1;
+
+
+  // -----------------------------------------------------------
+  // Store
+  // -----------------------------------------------------------
 
   if (!store) {
     throw new Error(
-      `Store ${index + 1}: name is required.`,
+      `Store ${number}: name is required.`,
     );
   }
 
 
+  // -----------------------------------------------------------
+  // URL
+  // -----------------------------------------------------------
+
   if (!url) {
     throw new Error(
-      `Store ${index + 1}: URL is required.`,
+      `Store ${number}: URL is required.`,
     );
   }
 
@@ -371,29 +578,79 @@ function buildSource(
     !isHttpUrl(url)
   ) {
     throw new Error(
-      `Store ${index + 1}: URL must use http:// or https://.`,
+      `Store ${number}: URL must use http:// or https://.`,
     );
   }
 
 
+  // -----------------------------------------------------------
+  // Manual price
+  // -----------------------------------------------------------
+
+  const manualPrice =
+    parseOptionalPositiveNumber(
+      source.manualPrice,
+      `Store ${number}: manual price`,
+    );
+
+
+  // -----------------------------------------------------------
+  // Unit quantity
+  // -----------------------------------------------------------
+
   const unitQuantity =
     parseOptionalPositiveNumber(
       source.unitQuantity,
-      `Store ${index + 1}: unit quantity`,
+      `Store ${number}: unit quantity`,
     );
 
+
+  // -----------------------------------------------------------
+  // Scraping / Manual mode
+  // -----------------------------------------------------------
+
+  const shouldScrape =
+    productScrapingEnabled &&
+    source.scrapingEnabled;
+
+
+  if (
+    !shouldScrape &&
+    manualPrice === null
+  ) {
+    throw new Error(
+      `Store ${number}: manual price is required when scraping is disabled.`,
+    );
+  }
+
+
+  // -----------------------------------------------------------
+  // API source
+  // -----------------------------------------------------------
 
   return {
     store,
     url,
+
+    scraping_enabled:
+      source.scrapingEnabled,
+
+    manual_price:
+      manualPrice,
+
     unit_quantity:
       unitQuantity,
+
     note:
       source.note.trim() ||
       null,
   };
 }
 
+
+// =============================================================
+// Numbers
+// =============================================================
 
 function parseRequiredPositiveNumber(
   value: string,
@@ -437,12 +694,17 @@ function parseOptionalPositiveNumber(
 }
 
 
+// =============================================================
+// URL
+// =============================================================
+
 function isHttpUrl(
   value: string,
 ): boolean {
   try {
     const url =
       new URL(value);
+
 
     return (
       url.protocol === "http:" ||
